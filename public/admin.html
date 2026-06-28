@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Yurist AI — Super Admin</title>
+<style>
+  :root{
+    --bg:#0b0f1a; --panel:#141a2e; --panel2:#1b2240; --line:rgba(255,255,255,.08);
+    --text:#e8ebf5; --muted:#8b93b0; --accent:#6d3bf5; --accent2:#22c55e;
+    --danger:#ef4444; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  input,select,button{font-family:inherit;font-size:14px}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--text);outline:none}
+  input:focus,select:focus{border-color:var(--accent)}
+  button{cursor:pointer;border:none;background:none;color:inherit}
+
+  /* ---- Login ekrani ---- */
+  .gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0b0f1a,#1a1033);padding:20px}
+  .gate-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:36px 32px;max-width:380px;width:100%}
+  .gate-card h1{font-size:20px;font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+  .gate-card p{color:var(--muted);font-size:13px;margin-bottom:24px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  .gate-error{color:var(--danger);font-size:12.5px;margin-bottom:12px;min-height:0}
+  .gate-submit{width:100%;background:linear-gradient(135deg,var(--accent),#9333ea);color:#fff;font-weight:700;padding:13px;border-radius:11px}
+  .gate-submit:hover{opacity:.92}
+
+  /* ---- Dashboard ---- */
+  .app{display:none;min-height:100vh}
+  .app.show{display:flex}
+  .sidebar{width:230px;background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column}
+  .brand{display:flex;align-items:center;gap:10px;padding:8px 10px 24px;border-bottom:1px solid var(--line);margin-bottom:14px}
+  .brand .logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#9333ea);display:flex;align-items:center;justify-content:center;font-size:17px}
+  .brand h1{font-size:14.5px;font-weight:800}
+  .brand span{font-size:10.5px;color:var(--muted)}
+  .nav button{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:10px 13px;border-radius:10px;color:var(--muted);font-size:13.5px;margin-bottom:2px}
+  .nav button:hover{background:var(--panel2);color:#fff}
+  .nav button.active{background:rgba(109,59,245,.18);color:#fff;font-weight:600}
+  .sidebar-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line)}
+  .sidebar-foot button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 13px;border-radius:10px;color:#f87171;font-size:13px}
+  .sidebar-foot button:hover{background:rgba(248,113,113,.12)}
+  .main{flex:1;padding:28px 36px;overflow-y:auto;max-height:100vh}
+  .page{display:none}
+  .page.active{display:block}
+  .pheader{margin-bottom:22px}
+  .pheader h2{font-size:21px;font-weight:800}
+  .pheader p{color:var(--muted);font-size:13px;margin-top:4px}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:24px}
+  .stat-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .stat-card .num{font-size:24px;font-weight:800;margin:8px 0 2px}
+  .stat-card .cap{font-size:11.5px;color:var(--muted)}
+  .stat-card .sub{font-size:10.5px;color:var(--accent2);margin-top:4px}
+
+  .panel-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:20px}
+
+  /* ===== ADMIN MODAL ===== */
+  .admin-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
+  .admin-modal-bg.show{display:flex}
+  .admin-modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:24px}
+  .admin-modal h3{font-size:16px;font-weight:700;margin-bottom:14px;color:#fff}
+  .admin-field{margin-bottom:14px}
+  .admin-field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  .admin-field input,.admin-field select,.admin-field textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:#fff;outline:none}
+  .admin-field textarea{resize:vertical;min-height:80px;font-family:inherit}
+  .admin-modal-actions{display:flex;gap:10px;margin-top:18px}
+  .admin-modal-actions .cancel{flex:1;border:1px solid var(--line);padding:11px;border-radius:8px;font-weight:600;color:var(--muted);background:none}
+  .admin-modal-actions .confirm{flex:2;background:var(--accent);color:#fff;padding:11px;border-radius:8px;font-weight:600}
+  .severity-pill{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+  .severity-pill.low{background:rgba(34,197,94,.15);color:#4ade80}
+  .severity-pill.medium{background:rgba(245,158,11,.15);color:#fbbf24}
+  .severity-pill.high{background:rgba(239,68,68,.15);color:#f87171}
+  .severity-pill.critical{background:rgba(239,68,68,.25);color:#fca5a5;font-weight:800}
+  .panel-card h3{font-size:14.5px;font-weight:700;margin-bottom:14px}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;padding:10px 12px;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--line)}
+  td{padding:11px 12px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:600}
+  .pill.login{background:rgba(34,197,94,.15);color:#4ade80}
+  .pill.logout{background:rgba(148,163,184,.15);color:#94a3b8}
+  .pill.register{background:rgba(109,59,245,.15);color:#a78bfa}
+  .pill.credit{background:rgba(245,158,11,.15);color:#fbbf24}
+  .pill.document{background:rgba(59,130,246,.15);color:#60a5fa}
+  .pill.chat{background:rgba(236,72,153,.15);color:#f472b6}
+  .pill.audit{background:rgba(239,68,68,.15);color:#f87171}
+  .pill.workspace{background:rgba(20,184,166,.15);color:#2dd4bf}
+  .pill.other{background:rgba(148,163,184,.15);color:#94a3b8}
+
+  .filter-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .filter-row select{width:auto;min-width:180px}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
+  .empty-state .ei{font-size:32px;margin-bottom:10px}
+
+  @media(max-width:900px){
+    .stat-grid{grid-template-columns:1fr 1fr}
+    .sidebar{position:fixed;top:0;left:0;bottom:0;z-index:40;transform:translateX(-105%);transition:.2s}
+    .sidebar.open{transform:none}
+    .main{padding:20px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div class="gate" id="adminGate">
+  <div class="gate-card">
+    <h1>🔐 Super Admin</h1>
+    <p>Yurist AI platformasini boshqarish paneli</p>
+    <div class="field"><label>Parol</label><input id="adminPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+    <div class="gate-error" id="adminGateError"></div>
+    <button class="gate-submit" onclick="adminLogin()">Kirish</button>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="app" id="adminApp">
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">⚙️</div><div><h1>Yurist AI</h1><span>Super Admin</span></div></div>
+    <nav class="nav" id="adminNav">
+      <button data-page="overview" class="active">📊 Umumiy ko'rinish</button>
+      <button data-page="users">👥 Foydalanuvchilar</button>
+      <button data-page="workspaces">🏢 B2B Tashkilotlar</button>
+      <button data-page="activity">📋 Faollik jurnali</button>
+      <button data-page="accuracy">🎯 Aniqlik metrikasi</button>
+      <button data-page="terms">📜 Shartlar tarixi</button>
+      <button data-page="incidents">🚨 Xavfsizlik hodisalari</button>
+    </nav>
+    <div class="sidebar-foot"><button onclick="adminLogout()">🚪 Chiqish</button></div>
+  </aside>
+
+  <main class="main">
+    <!-- OVERVIEW -->
+    <section class="page active" id="page-overview">
+      <div class="pheader"><h2>Umumiy ko'rinish</h2><p>Platforma bo'yicha asosiy ko'rsatkichlar</p></div>
+      <div class="stat-grid" id="overviewStats"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="panel-card"><h3>👥 Foydalanuvchilar o'sishi</h3><div id="userGrowthStats"></div></div>
+        <div class="panel-card"><h3>💰 Daromad</h3><div id="revenueStats"></div></div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section class="page" id="page-users">
+      <div class="pheader"><h2>Foydalanuvchilar</h2><p>Barcha ro'yxatdan o'tgan foydalanuvchilar (shaxsiy mazmun ko'rinmaydi)</p></div>
+      <div class="panel-card" style="margin-bottom:20px">
+        <h3 style="margin-bottom:10px">🔍 IP manzil bo'yicha qidiruv (huquqiy dalil)</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Shu IP manzildan foydalanish shartlariga rozilik bergan foydalanuvchilarni topish -- nizo/da'vo holatlarida dalil sifatida.</p>
+        <div class="filter-row">
+          <input id="ipSearchInput" placeholder="Masalan: 192.168.1.1" style="flex:1;max-width:280px" onkeydown="if(event.key==='Enter')searchByIp()">
+          <button onclick="searchByIp()" style="background:var(--accent);color:#fff;padding:10px 18px;border-radius:8px;font-weight:600">Qidirish</button>
+          <button onclick="clearIpSearch()" style="padding:10px 18px;border-radius:8px;color:var(--muted)">Tozalash</button>
+        </div>
+        <div id="ipSearchResult" style="margin-top:14px"></div>
+      </div>
+      <div class="panel-card"><div id="usersTable"></div></div>
+    </section>
+
+    <!-- WORKSPACES -->
+    <section class="page" id="page-workspaces">
+      <div class="pheader"><h2>B2B Tashkilotlar</h2><p>Barcha ro'yxatdan o'tgan biznes workspace'lar</p></div>
+      <div class="panel-card"><div id="workspacesTable"></div></div>
+    </section>
+
+    <!-- ACCURACY METRICS (RAGAS-uslubida) -->
+    <section class="page" id="page-accuracy">
+      <div class="pheader"><h2>🎯 Aniqlik metrikasi</h2><p>RAGAS metodologiyasiga asoslangan AI javoblari sifatini baholash (Faithfulness, Answer Relevancy, Context Precision)</p></div>
+      <div class="filter-row">
+        <select id="accuracyDaysFilter" onchange="loadAccuracy()">
+          <option value="7">So'nggi 7 kun</option>
+          <option value="30" selected>So'nggi 30 kun</option>
+          <option value="90">So'nggi 90 kun</option>
+        </select>
+      </div>
+      <div class="stat-grid" id="accuracyStats" style="grid-template-columns:repeat(4,1fr)"></div>
+      <div class="panel-card">
+        <h3>🌐 Yurisdiksiya bo'yicha taqsimot</h3>
+        <div id="accuracyByJurisdiction"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section class="page" id="page-activity">
+      <div class="pheader"><h2>Faollik jurnali</h2><p>Kim, qachon, nima qildi — savol/javob matni va shaxsiy mazmun saqlanmaydi</p></div>
+      <div class="filter-row">
+        <select id="activityFilter" onchange="loadActivity()">
+          <option value="">Barcha turlar</option>
+          <option value="user_login">Kirish</option>
+          <option value="user_logout">Chiqish</option>
+          <option value="user_registered">Ro'yxatdan o'tish</option>
+          <option value="credit_purchased">Kredit sotib olish</option>
+          <option value="promo_redeemed">Promokod</option>
+          <option value="document_created">Hujjat yaratish</option>
+          <option value="chat_message_sent">AI chat</option>
+          <option value="risk_analysis_run">Xavf tahlili</option>
+          <option value="workspace_created">Workspace yaratish</option>
+          <option value="workspace_deleted">Workspace o'chirish</option>
+          <option value="b2b_member_added">B2B xodim qo'shish</option>
+          <option value="b2b_template_created">B2B shablon yaratish</option>
+          <option value="b2b_audit_run">B2B audit</option>
+          <option value="b2b_api_key_created">API kalit yaratish</option>
+        </select>
+      </div>
+      <div class="panel-card"><div id="activityTable"></div></div>
+    </section>
+
+    <!-- TERMS HISTORY (huquqiy dalil arxivi) -->
+    <section class="page" id="page-terms">
+      <div class="pheader"><h2>📜 Shartlar tarixi</h2><p>Har bir foydalanish shartlari versiyasining to'liq, o'zgarmas matni -- huquqiy dalil sifatida abadiy saqlanadi</p></div>
+      <div class="panel-card" style="margin-bottom:20px">
+        <p style="font-size:12.5px;color:var(--muted);line-height:1.6">ℹ️ Bu yerdagi versiyalar HECH QACHON o'chirilmaydi yoki tahrirlanmaydi. Agar foydalanuvchi "men 1.0 versiyada nima yozilganini bilmoqchiman" desa, shu sahifada o'sha versiyaning aniq, o'zgarmagan matnini ko'rsatish mumkin.</p>
+      </div>
+      <div id="termsVersionsList"></div>
+      <div id="termsVersionDetail" style="display:none"></div>
+    </section>
+
+    <!-- SECURITY INCIDENTS (breach notification log) -->
+    <section class="page" id="page-incidents">
+      <div class="pheader">
+        <div><h2>🚨 Xavfsizlik hodisalari</h2><p>Ma'lumotlar sizib chiqishi yoki boshqa xavfsizlik hodisalari -- huquqiy muddatlarni kuzatish uchun</p></div>
+        <button onclick="openNewIncidentModal()" style="background:var(--accent);color:#fff;padding:10px 18px;border-radius:8px;font-weight:600">+ Yangi hodisa</button>
+      </div>
+      <div class="panel-card" style="margin-bottom:20px;border-color:rgba(217,119,6,.3)">
+        <p style="font-size:12.5px;color:var(--muted);line-height:1.6">⚠️ Bu jurnal hodisani OLDINI OLMAYDI -- bu faqat "agar hodisa yuz bersa, qanday harakat qildik" yozuvi. Aniq xabar berish muddatlari (masalan 72 soat) yuristingiz tomonidan tasdiqlanishi kerak.</p>
+      </div>
+      <div id="incidentsList"></div>
+      <div id="incidentDetail" style="display:none"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ MODAL ============ -->
+<div class="admin-modal-bg" id="adminModalBg">
+  <div class="admin-modal" id="adminModalBox"></div>
+</div>
+
+<script src="/admin.js"></script>
+</body>
+</html>
