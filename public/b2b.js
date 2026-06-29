@@ -422,13 +422,39 @@ function renderTemplates(templates){
       <div class="tmeta"><span>v${tpl.currentVersion}</span><span>${new Date(tpl.updatedAt).toLocaleDateString('ru-RU')}</span></div>
     </div>`).join('')}</div>`;
 }
+// ---- AI BILAN O'ZGARUVCHILARNI AVTOMATIK BELGILASH ----
+// Foydalanuvchi {{...}} sintaksisini HECH QACHON o'zi yozmasligi kerak --
+// na yangi shablon yaratayotganda, na eskisini tahrirlayotganda. Bu funksiya
+// berilgan textarea'dagi NIMA BO'LSA HAM (yangi yozilgan oddiy matn yoki
+// eski versiya matni) joriy holatini AI'ga yuboradi, AI qaysi joylar har
+// safar o'zgarishi kerakligini aniqlab {{...}} bilan belgilaydi, natija
+// qaytib shu textarea ichiga joylanadi -- foydalanuvchi faqat ko'rib chiqib,
+// keyin saqlaydi.
+async function markVariablesInTextarea(textareaId, btnId){
+  const ta = document.getElementById(textareaId);
+  const btn = document.getElementById(btnId);
+  const raw = ta.value.trim();
+  if(!raw){ toast(t('error_occurred'),"Avval matn yozing","#ef4444","⚠️"); return; }
+  const oldLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Aniqlanmoqda...';
+  try{
+    const draft = await apiPost(`/b2b/templates/${currentWorkspace.id}/ai-draft`, {text: raw});
+    ta.value = draft.body;
+    toast("Tayyor", "O'zgaruvchi joylar avtomatik belgilandi", "#22c55e", "✨");
+  }catch(e){
+    toast(t('error_occurred'), e.message, "#ef4444", "⚠️");
+  }
+  btn.disabled = false; btn.textContent = oldLabel;
+}
+
 function openCreateTemplateModal(prefill){
   const p = prefill || {};
-  openModal(`<h3>📄 ${t('b2b_new_template_title')}</h3><div class="msub">${t('b2b_new_template_sub')} <code>{{nom}}</code></div>
+  openModal(`<h3>📄 ${t('b2b_new_template_title')}</h3><div class="msub">${t('b2b_new_template_sub')}</div>
     ${p.fromAi ? `<div style="background:#1e293b;border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--muted);margin-bottom:14px">🤖 AI tomonidan tayyorlangan loyiha — saqlashdan oldin matnni tekshirib, kerak bo'lsa tahrirlang.</div>` : ''}
     <div class="b2b-field"><label>${t('b2b_template_name')}</label><input id="newTplName" placeholder="${t('b2b_template_name_ph')}" value="${escapeHtml(p.name||'')}"></div>
     <div class="b2b-field"><label>${t('b2b_category')}</label><input id="newTplCategory" placeholder="${t('b2b_category_ph')}" value="${escapeHtml(p.category||'')}"></div>
     <div class="b2b-field"><label>${t('b2b_template_text')}</label><textarea id="newTplBody" rows="9" placeholder="${t('b2b_template_text_ph')}">${escapeHtml(p.body||'')}</textarea></div>
+    <div style="margin:-4px 0 14px"><button class="b2b-confirm" id="newTplMarkBtn" style="background:#374151;font-size:12.5px;padding:8px 14px" onclick="markVariablesInTextarea('newTplBody','newTplMarkBtn')">✨ AI bilan o'zgaruvchilarni belgilash</button></div>
     <div class="b2b-modal-actions"><button class="b2b-cancel" onclick="closeModal()">${t('b2b_cancel')}</button>
     <button class="b2b-confirm" onclick="submitCreateTemplate()">${t('b2b_create_btn')}</button></div>`);
 }
@@ -483,6 +509,8 @@ async function openTemplateDetail(id){
     window._tplBodyCache[template.id] = latest?.body || '';
     openModal(`<h3>${template.name}</h3><div class="msub">${template.category} · v${template.currentVersion} · ${versions.length}</div>
       <div class="b2b-field"><label>${t('b2b_current_text')}</label><textarea id="tplCurrentBody" rows="6">${latest?.body||''}</textarea></div>
+      <div style="margin:-4px 0 14px"><button class="b2b-confirm" id="tplMarkBtn" style="background:#374151;font-size:12.5px;padding:8px 14px" onclick="markVariablesInTextarea('tplCurrentBody','tplMarkBtn')">✨ AI bilan o'zgaruvchilarni belgilash</button>
+      <span style="font-size:11.5px;color:var(--muted);margin-left:8px">— real ism/sana/summa yozgan bo'lsangiz, shu tugma {{...}} larni o'zi qo'yadi</span></div>
       <div class="b2b-field"><label>${t('b2b_change_note')}</label><input id="tplChangeNote" placeholder="${t('b2b_change_note_ph')}"></div>
       <div class="b2b-modal-actions">
         <button class="b2b-cancel" onclick="closeModal()">${t('b2b_close')}</button>
@@ -699,12 +727,32 @@ async function loadDocuments(){
       c.innerHTML = `<div class="empty-state"><div class="ei">📂</div><h4>${t('b2b_no_docs_title')}</h4><p>${t('b2b_no_docs_sub')}</p></div>`;
       return;
     }
+    // FAQAT egasi/admin hujjatni o'chira oladi -- jamoaviy arxivda oddiy
+    // xodim boshqalar yaratgan hujjatni o'chirib yubormasligi kerak.
+    const canDelete = currentWorkspace.myRole==='owner' || currentWorkspace.myRole==='admin';
     c.innerHTML = documents.map(d=>`
       <div class="panel-card" style="display:flex;justify-content:space-between;align-items:center">
         <div><div style="font-weight:700;font-size:14px">${d.name}</div><div style="font-size:11.5px;color:var(--muted);margin-top:3px">${new Date(d.createdAt).toLocaleString('ru-RU')}</div></div>
-        <button class="pbtn ghost" onclick="b2bDownloadDoc('${d.id}','pdf')">📄 PDF</button>
+        <div style="display:flex;gap:8px">
+          <button class="pbtn ghost" onclick="b2bDownloadDoc('${d.id}','pdf')">📄 PDF</button>
+          ${canDelete ? `<button class="pbtn ghost" style="color:#f87171;border-color:#f87171" onclick="confirmDeleteB2BDoc('${d.id}','${d.name.replace(/'/g,"\\'")}')">🗑</button>` : ''}
+        </div>
       </div>`).join('');
   }catch(e){ toast(t('error_occurred'), e.message, '#ef4444','⚠️'); }
+}
+function confirmDeleteB2BDoc(docId, name){
+  openModal(`<h3 style="color:#f87171">⚠️ Hujjatni o'chirish</h3>
+    <div class="msub"><b>${name}</b> arxivdan butunlay o'chiriladi. Bu amalni qaytarib bo'lmaydi.</div>
+    <div class="b2b-modal-actions"><button class="b2b-cancel" onclick="closeModal()">${t('b2b_cancel')}</button>
+    <button class="b2b-confirm" style="background:#dc2626" onclick="doDeleteB2BDoc('${docId}')">🗑 O'chirish</button></div>`);
+}
+async function doDeleteB2BDoc(docId){
+  try{
+    await apiDelete(`/b2b/documents/${currentWorkspace.id}/${docId}`);
+    closeModal();
+    toast("Hujjat o'chirildi", '', '#ef4444', '🗑️');
+    loadDocuments();
+  }catch(e){ closeModal(); toast(t('error_occurred'), e.message, '#ef4444','⚠️'); }
 }
 
 /* ============ TEAM ============ */

@@ -100,4 +100,18 @@ router.get('/:workspaceId/:docId/docx', async (req, res) => {
   }
 });
 
+// DELETE /api/b2b/documents/:workspaceId/:docId -- hujjatni arxivdan o'chirish
+// FAQAT admin/egasi o'chira oladi -- bu jamoaviy arxiv, oddiy xodim (member)
+// yoki ko'ruvchi (viewer) boshqalar yaratgan hujjatni o'chira olmasligi kerak.
+router.delete('/:workspaceId/:docId', ws.requireWorkspaceAccess('admin'), async (req, res) => {
+  try {
+    const doc = await Document.findOneAndDelete({ _id: req.params.docId, organizationId: req.workspace.id });
+    if (!doc) return res.status(404).json({ error: 'Hujjat topilmadi' });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[b2b documents/delete] xato:', e);
+    res.status(500).json({ error: "Hujjatni o'chirishda xato yuz berdi" });
+  }
+});
+
 module.exports = router;
