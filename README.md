@@ -67,6 +67,7 @@ yurist-ai-app/
 │   ├── index.js                 Express kirish nuqtasi, barcha route mount
 │   ├── nia.js                    Nia API klienti (real qonun/sud qidiruvi)
 │   ├── riskEngine.js             Shartnoma xavf tahlili — qoidaga asoslangan ball
+│   ├── textExtraction.js         PDF/DOCX/TXT fayllardan haqiqiy matn ajratish (pdf-parse, mammoth)
 │   ├── jurisdictionRouter.js      Matn/parametr asosida qaysi davlat qonuni kerakligini aniqlaydi
 │   ├── citationBuilder.js        AI javobiga manba havolalarini biriktiradi
 │   ├── caseSummarizer.js         "Ishlarim" (Case) uchun AI orqali xulosa yangilash
@@ -347,15 +348,17 @@ PATCH  /api/admin/incidents/:id/notify-authority
   ulanmagan, shuning uchun bu endpoint mijoz so'rovidagi qiymatga ishonadi.
   Frontend buni "test rejimi" deb belgilab qo'ygan. Real to'lov tizimi
   ulanmaguncha, bu yerda haqiqiy pul aylanmasligi kerak.
-- **PDF/DOCX matn ajratish** (`server/routes/risk.js`) -- faqat `.txt` fayllar
-  uchun ishonchli matn beradi. PDF/DOCX uchun real parser (`pdf-parse`,
-  `mammoth`) hali ulanmagan -- README'ning eski versiyasida bu "keyingi qadam"
-  deb yozilgan edi, hali ham shunday.
 - **Workspace kredit hovuzi** -- yuqorida (bo'lim 4) aytib o'tilgan: B2B
   kredit endi shaxsiy, jamoaviy hovuz yo'q.
 - **Noto'g'ri ID format** (masalan buzilgan URL) ba'zi joylarda 404 o'rniga
   500 qaytaradi (Mongoose CastError to'liq alohida ushlanmagan) -- funksional
   emas, faqat HTTP status farqi.
+- **Skanerlangan (rasm-asosli) PDF/DOCX hali qo'llab-quvvatlanmaydi** --
+  `server/textExtraction.js` (`pdf-parse` + `mammoth`) faqat MATN qatlami bor
+  fayllardan o'qiydi. Agar hujjat skaner qilingan rasm bo'lsa (OCR kerak
+  bo'ladigan turi), matn bo'sh chiqadi va "o'qib bo'lmadi" deb ko'rsatiladi --
+  bu xato emas, OCR hali ulanmagan, alohida funksiya sifatida kelajakda
+  qo'shilishi mumkin.
 
 ## 10. O'rnatish va ishga tushirish
 

@@ -14,6 +14,7 @@ const multer = require('multer');
 const { Audit } = require('../../models');
 const { requireAuth } = require('../../routes/auth');
 const { analyzeText } = require('../../riskEngine');
+const { extractText } = require('../../textExtraction');
 const { searchForJurisdiction, isConfigured: niaConfigured, searchCaseLaw, isCaseLawAvailable } = require('../../nia');
 const { routeJurisdiction } = require('../../jurisdictionRouter');
 const { buildCitations } = require('../../citationBuilder');
@@ -59,16 +60,9 @@ router.post('/:workspaceId/analyze', ws.requireWorkspaceAccess('member'), upload
       return res.status(402).json({ error: 'Kredit yetarli emas', code: 'NO_CREDITS' });
     }
 
-    let text = '';
-    const mime = req.file.mimetype || '';
     const fname = req.file.originalname || '';
-    try {
-      text = (mime.includes('text') || fname.toLowerCase().endsWith('.txt'))
-        ? req.file.buffer.toString('utf-8')
-        : req.file.buffer.toString('utf-8').replace(/[^\x20-\x7E\u0400-\u04FF.,№\-]/g, ' ');
-    } catch (e) {
-      text = '';
-    }
+    const extraction = await extractText(req.file.buffer, req.file.mimetype, fname);
+    const text = extraction.text;
 
     const result = analyzeText(text);
 
@@ -139,7 +133,7 @@ router.post('/:workspaceId/analyze', ws.requireWorkspaceAccess('member'), upload
     req.user.credits = Math.max(0, req.user.credits - 1);
     await req.user.save();
 
-    res.status(201).json({ audit, creditsLeft: req.user.credits });
+    res.status(201).json({ audit, creditsLeft: req.user.credits, extractionWarning: extraction.warning || null });
   } catch (e) {
     console.error('[audit/analyze] xato:', e);
     res.status(500).json({ error: 'Hujjatni tahlil qilishda kutilmagan xato yuz berdi' });

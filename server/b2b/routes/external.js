@@ -19,6 +19,7 @@ const multer = require('multer');
 const { Template, TemplateVersion, Document, Audit } = require('../../models');
 const { requireApiKey } = require('../apiKeys');
 const { analyzeText } = require('../../riskEngine');
+const { extractText } = require('../../textExtraction');
 const { searchForJurisdiction, isConfigured: niaConfigured } = require('../../nia');
 const { routeJurisdiction } = require('../../jurisdictionRouter');
 const { buildCitations } = require('../../citationBuilder');
@@ -131,19 +132,17 @@ router.post('/audits/analyze', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Fayl yuklanmadi -- multipart/form-data formatida "file" maydoni talab qilinadi' });
     }
 
-    let text = '';
-    const mime = req.file.mimetype || '';
     const fname = req.file.originalname || 'hujjat';
+    let text, extraction;
     try {
-      text = (mime.includes('text') || fname.toLowerCase().endsWith('.txt'))
-        ? req.file.buffer.toString('utf-8')
-        : req.file.buffer.toString('utf-8').replace(/[^\x20-\x7E\u0400-\u04FF.,№\-]/g, ' ');
+      extraction = await extractText(req.file.buffer, req.file.mimetype, fname);
+      text = extraction.text;
     } catch (e) {
       return res.status(422).json({ error: "Fayl matnini o'qishda xato yuz berdi -- fayl shikastlangan bo'lishi mumkin" });
     }
 
     if (!text.trim()) {
-      return res.status(422).json({ error: "Fayldan matn chiqarib bo'lmadi -- fayl bo'sh yoki qo'llab-quvvatlanmaydigan formatda" });
+      return res.status(422).json({ error: extraction.warning || "Fayldan matn chiqarib bo'lmadi -- fayl bo'sh yoki qo'llab-quvvatlanmaydigan formatda" });
     }
 
     let result;

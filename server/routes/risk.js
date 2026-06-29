@@ -4,6 +4,7 @@ const multer = require('multer');
 const users = require('./users');
 const { requireAuth } = require('./auth');
 const { analyzeText } = require('../riskEngine');
+const { extractText } = require('../textExtraction');
 const { logActivity, ACTION_TYPES } = require('../activityLog');
 
 const router = express.Router();
@@ -16,19 +17,8 @@ router.post('/analyze', requireAuth, upload.single('file'), async (req, res) => 
     if (user.credits < 1) return res.status(402).json({ error: 'Kredit yetarli emas', code: 'NO_CREDITS' });
     if (!req.file) return res.status(400).json({ error: 'Fayl yuklanmadi' });
 
-    let text = '';
-    const mime = req.file.mimetype || '';
-    const fname = req.file.originalname || '';
-
-    try {
-      if (mime.includes('text') || fname.toLowerCase().endsWith('.txt')) {
-        text = req.file.buffer.toString('utf-8');
-      } else {
-        text = req.file.buffer.toString('utf-8').replace(/[^\x20-\x7E\u0400-\u04FF.,№\-]/g, ' ');
-      }
-    } catch (e) {
-      text = '';
-    }
+    const extraction = await extractText(req.file.buffer, req.file.mimetype, req.file.originalname);
+    const text = extraction.text;
 
     const result = analyzeText(text);
     const updatedUser = await users.adjustCredits(user.id, -1);
@@ -40,11 +30,12 @@ router.post('/analyze', requireAuth, upload.single('file'), async (req, res) => 
     });
 
     res.json({
-      fileName: fname,
+      fileName: req.file.originalname || '',
       score: result.score,
       tier: result.tier,
       readable: result.readable,
       findings: result.findings,
+      extractionWarning: extraction.warning || null,
       creditsLeft: updatedUser ? updatedUser.credits : Math.max(0, user.credits - 1),
     });
   } catch (e) {
