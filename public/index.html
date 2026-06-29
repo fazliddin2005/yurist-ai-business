@@ -1094,6 +1094,15 @@ const API = '/api';
 function authToken(){ return localStorage.getItem('yurist_token'); }
 function setAuthToken(t){ if(t) localStorage.setItem('yurist_token', t); else localStorage.removeItem('yurist_token'); }
 function authHeaders(){ const t=authToken(); return t ? {'Authorization':'Bearer '+t} : {}; }
+// AI ba'zan ko'rsatmaga qaramay **qalin** yoki # sarlavha kabi markdown belgi
+// ishlatib qo'yishi mumkin -- bu matn PDF/DOCX'ga XOM holda tushadi (belgi
+// formatlashga aylanmaydi). Hujjat matnini saqlashdan oldin tozalaymiz.
+function stripMarkdown(text){
+  return String(text||'')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(?!_)(.+?)(?<!_)__/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '');
+}
 
 async function apiGet(path){
   const r = await fetch(API+path, {headers: authHeaders()});
@@ -1671,11 +1680,11 @@ async function sendChat(){
     if(docMatch){
       const before = reply.slice(0, docMatch.index).trim();
       const after = reply.slice(docMatch.index + docMatch[0].length).trim();
-      const docText = docMatch[1].trim();
+      const docText = stripMarkdown(docMatch[1].trim());
       const docId = 'aidoc_'+Date.now();
       window._aiDocs = window._aiDocs || {};
       window._aiDocs[docId] = docText;
-      const firstLine = (docText.split('\n').find(l=>l.trim()) || 'Hujjat').trim().slice(0,60);
+      const firstLine = stripMarkdown((docText.split('\n').find(l=>l.trim()) || 'Hujjat').trim()).slice(0,60);
       body.innerHTML+=`<div class="msg ai"><div class="mav">🤖</div><div class="bub">
         ${before?`<div style="margin-bottom:10px">${before}</div>`:''}
         <div class="ai-doc-card">

@@ -16,6 +16,19 @@ const router = express.Router();
 function safeFileName(name) {
   return (name || 'hujjat').replace(/[^\w\u0400-\u04FF\- ]/g, '').replace(/\s+/g, '_');
 }
+// HTTP header (Content-Disposition) faqat ASCII belgilarni qabul qiladi --
+// kirill harflari (rus tilidagi hujjat nomi) xom holda yuborilsa, Node.js
+// "Invalid character in header content" xatosini tashlaydi -- shuning uchun
+// kirill nomli hujjatlarni PDF/DOCX qilib yuklab bo'lmay qolardi ("PDF
+// yaratishda xato yuz berdi" -- aslida xato PDF yasashda emas, shu yerda
+// edi). RFC 5987 bo'yicha to'g'ri kodlaymiz: ASCII zaxira nom (eski
+// brauzerlar uchun) + UTF-8 percent-encoded filename* (haqiqiy nom uchun).
+function contentDispositionHeader(name, ext) {
+  const safe = safeFileName(name);
+  let asciiFallback = safe.replace(/[^\w\- ]/g, '').replace(/^[\s_-]+|[\s_-]+$/g, '');
+  if (!/[a-zA-Z0-9]/.test(asciiFallback)) asciiFallback = 'hujjat'; // butunlay kirill nom bo'lsa, mazmunsiz "-" qolmasin
+  return `attachment; filename="${asciiFallback}.${ext}"; filename*=UTF-8''${encodeURIComponent(safe)}.${ext}`;
+}
 
 router.use(requireAuth);
 router.use('/:workspaceId', ws.requireWorkspaceAccess());
@@ -77,7 +90,7 @@ router.get('/:workspaceId/:docId/pdf', async (req, res) => {
     // B2B hujjatlari erkin matn (filledBody) -- oddiy paragraf shaklida PDFga joylaymiz.
     const buffer = await generatePdfBuffer({ name: doc.name, templateKey: 'b2b_freeform', data: { obj: doc.filledBody } });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName(doc.name)}.pdf"`);
+    res.setHeader('Content-Disposition', contentDispositionHeader(doc.name, 'pdf'));
     res.send(buffer);
   } catch (e) {
     console.error('[b2b documents/pdf] xato:', e);
@@ -92,7 +105,7 @@ router.get('/:workspaceId/:docId/docx', async (req, res) => {
     if (!doc) return res.status(404).json({ error: 'Hujjat topilmadi' });
     const buffer = await generateDocxBuffer({ name: doc.name, templateKey: 'b2b_freeform', data: { obj: doc.filledBody } });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName(doc.name)}.docx"`);
+    res.setHeader('Content-Disposition', contentDispositionHeader(doc.name, 'docx'));
     res.send(buffer);
   } catch (e) {
     console.error('[b2b documents/docx] xato:', e);

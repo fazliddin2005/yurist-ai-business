@@ -19,6 +19,17 @@ function t(key){
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// AI ba'zan ko'rsatmaga qaramay **qalin** yoki # sarlavha kabi markdown belgi
+// ishlatib qo'yishi mumkin -- bu matn PDF/DOCX'ga XOM holda tushadi (belgi
+// formatlashga aylanmaydi). Shuning uchun hujjat matnini saqlashdan oldin
+// bu belgilarni tozalaymiz -- tizim promptidagi taqiq + shu tozalash birga
+// ishlaydi (ikkinchisi -- agar birinchisi to'liq ishlamay qolsa, zaxira).
+function stripMarkdown(text){
+  return String(text||'')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(?!_)(.+?)(?<!_)__/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '');
+}
 
 function applyB2BLang(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
@@ -988,11 +999,11 @@ async function b2bSendChat(){
     if(docMatch){
       const before = reply.slice(0, docMatch.index).trim();
       const after = reply.slice(docMatch.index + docMatch[0].length).trim();
-      const docText = docMatch[1].trim();
+      const docText = stripMarkdown(docMatch[1].trim());
       const docId = 'b2bdoc_'+Date.now();
       window._b2bAiDocs = window._b2bAiDocs || {};
       window._b2bAiDocs[docId] = docText;
-      const firstLine = (docText.split('\n').find(l=>l.trim()) || 'Hujjat').trim().slice(0,60);
+      const firstLine = stripMarkdown((docText.split('\n').find(l=>l.trim()) || 'Hujjat').trim()).slice(0,60);
       body.innerHTML += `<div class="b2b-msg"><div class="b2b-msg-av">🤖</div><div class="b2b-msg-bub">
         ${before?`<div style="margin-bottom:8px">${before}</div>`:''}
         <div class="b2b-doc-card">

@@ -87,7 +87,11 @@ SEN BUNI BAJARASAN -- rad etma, "Hujjat yaratish" bo'limiga yo'naltirma. Buning 
 4. [[DOC_START]] dan oldin va [[DOC_END]] dan keyin faqat juda qisqa (1 jumlagacha) izoh
    yozishing mumkin (masalan "Mana sizning shartnomangiz:"), lekin hujjat matnining O'ZI
    belgilar ichida bo'lishi SHART.
-5. Agar foydalanuvchi qaysi turdagi shartnoma kerakligini aniq aytmagan bo'lsa ham, kontekstdan
+5. [[DOC_START]] va [[DOC_END]] ICHIDA HECH QANDAY MARKDOWN BELGISI ISHLATMA -- ya'ni
+   **qalin matn**, __qalin matn__, # sarlavha kabi belgilarni YOZMA. Bu matn to'g'ridan-to'g'ri
+   PDF/DOCX fayliga oddiy matn sifatida tushadi -- yulduzcha belgilari formatlashga aylanmaydi,
+   xom holda ko'rinib qoladi. Sarlavhalarni shunchaki katta harf bilan yoz (masalan "1. TOMONLAR").
+6. Agar foydalanuvchi qaysi turdagi shartnoma kerakligini aniq aytmagan bo'lsa ham, kontekstdan
    eng mos hujjat turini taxmin qilib, darhol to'liq matn tuz -- qo'shimcha savol berib
    vaqt yo'qotma, faqat juda noaniq bo'lsa qisqa aniqlashtirish savoli ber.`;
 }

@@ -16,6 +16,16 @@ function safeFileName(name) {
     .replace(/[^\w\u0400-\u04FF\- ]/g, '')
     .replace(/\s+/g, '_');
 }
+// HTTP header (Content-Disposition) faqat ASCII belgilarni qabul qiladi --
+// kirill harflari (rus tilidagi hujjat nomi) xom holda yuborilsa, Node.js
+// "Invalid character in header content" xatosini tashlaydi. RFC 5987
+// bo'yicha to'g'ri kodlaymiz: ASCII zaxira nom + UTF-8 percent-encoded filename*.
+function contentDispositionHeader(name, ext) {
+  const safe = safeFileName(name);
+  let asciiFallback = safe.replace(/[^\w\- ]/g, '').replace(/^[\s_-]+|[\s_-]+$/g, '');
+  if (!/[a-zA-Z0-9]/.test(asciiFallback)) asciiFallback = 'hujjat'; // butunlay kirill nom bo'lsa, mazmunsiz "-" qolmasin
+  return `attachment; filename="${asciiFallback}.${ext}"; filename*=UTF-8''${encodeURIComponent(safe)}.${ext}`;
+}
 
 router.use(requireAuth);
 
@@ -94,7 +104,7 @@ router.get('/:id/pdf', async (req, res) => {
     }
     const buffer = await generatePdfBuffer(docRow.toObject());
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName(docRow.name)}.pdf"`);
+    res.setHeader('Content-Disposition', contentDispositionHeader(docRow.name, 'pdf'));
     res.send(buffer);
   } catch (e) {
     console.error('[documents/pdf] xato:', e);
@@ -112,7 +122,7 @@ router.get('/:id/docx', async (req, res) => {
     }
     const buffer = await generateDocxBuffer(docRow.toObject());
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName(docRow.name)}.docx"`);
+    res.setHeader('Content-Disposition', contentDispositionHeader(docRow.name, 'docx'));
     res.send(buffer);
   } catch (e) {
     console.error('[documents/docx] xato:', e);

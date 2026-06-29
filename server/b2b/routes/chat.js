@@ -61,10 +61,15 @@ Agar foydalanuvchi sendan biror shartnoma, kelishuv yoki boshqa yuridik hujjat Y
 SEN BUNI BAJARASAN. Buning uchun:
 1. To'liq, professional, band-bandli hujjat matnini ${langName} tilida tuz.
 2. Hujjat matnini ANIQ shu ikki belgi orasiga joylashtir: [[DOC_START]] va [[DOC_END]].
-3. Tuzilish: sarlavha -> "№ ___" va sana/joy -> "1. TOMONLAR" (ism berilmagan bo'lsa "________________")
+3. [[DOC_START]] va [[DOC_END]] ICHIDA HECH QANDAY MARKDOWN BELGISI ISHLATMA -- ya'ni
+   **qalin matn**, __qalin matn__, # sarlavha kabi belgilarni YOZMA. Bu matn to'g'ridan-to'g'ri
+   PDF/DOCX fayliga, oddiy matn sifatida tushadi -- yulduzcha (*) belgilari formatlashga
+   aylanmaydi, ekranda xom holda ko'rinib qoladi. Sarlavhalarni katta harf bilan yoz
+   (masalan "1. TOMONLAR"), qalin qilish kerak bo'lsa ham hech qanday belgi qo'shmasdan oddiy yoz.
+4. Tuzilish: sarlavha -> "№ ___" va sana/joy -> "1. TOMONLAR" (ism berilmagan bo'lsa "________________")
    -> "2. SHARTNOMA PREDMETI" -> tegishli bo'limlar -> "YAKUNIY QOIDALAR" -> imzo joylari.
-4. [[DOC_START]]/[[DOC_END]] atrofida faqat juda qisqa izoh bo'lsin.
-5. Tur aniq aytilmagan bo'lsa ham eng mos hujjatni darhol tuz, savol berib vaqt yo'qotma.`;
+5. [[DOC_START]]/[[DOC_END]] atrofida faqat juda qisqa izoh bo'lsin.
+6. Tur aniq aytilmagan bo'lsa ham eng mos hujjatni darhol tuz, savol berib vaqt yo'qotma.`;
 }
 
 const GREETING_RE = /^(salom|salam|assalomu|hi|hello|hey|привет|здравствуйте|сәлем|салам)\b/i;
