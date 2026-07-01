@@ -93,20 +93,27 @@ function buildCitation(chunk, jurisdictionCode) {
   const codexName = getCodexName(jurisdictionCode, codexType);
   const articleNumber = detectArticleNumber(chunk?.text);
 
-  // Talab qilingan format: "Manba: [Davlat nomi], [Kodeks nomi], [Modda]"
+  // Talab qilingan format: "Manba: [Davlat nomi], [Kodeks nomi], [Modda] (Havola: [URL])"
   // Kodeks yoki modda topilmasa, shu qismlar tushib qoladi (lekin davlat
-  // nomi har doim bo'ladi).
+  // nomi har doim bo'ladi). MUHIM: havola (sourceUrl) ALBATTA citationText
+  // ichiga qo'shiladi -- aks holda bu maydon faqat hisoblab chiqiladi-yu,
+  // hech qayerga yuborilmay, AI uni hech qachon ko'rmay qoladi (bu xato
+  // ilgari mavjud edi: AI javobida lex.uz havolasi umuman chiqmasdi).
   const parts = [countryName];
   if (codexName) parts.push(codexName);
   if (articleNumber) parts.push(articleNumber);
+  const sourceUrl = chunk?.source || juris.officialName || '';
+
+  let citationText = `Manba: ${parts.join(', ')}`;
+  if (sourceUrl) citationText += ` (Havola: ${sourceUrl})`;
 
   return {
     countryName,
     codexName: codexName || null,
     articleNumber: articleNumber || null,
-    sourceUrl: chunk?.source || juris.officialName || '',
+    sourceUrl,
     excerpt: (chunk?.text || '').slice(0, 300),
-    citationText: `Manba: ${parts.join(', ')}`,
+    citationText,
   };
 }
 

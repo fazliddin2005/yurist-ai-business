@@ -26,6 +26,7 @@ const users = require('./users');
 const { Case } = require('../models');
 const { addCaseEvent } = require('./cases');
 const { evaluateResponse, recordAccuracyScore } = require('../accuracyMetrics');
+const { searchViaOpenAI } = require('../openaiSearch');
 const router = express.Router();
 
 const MESSAGES_PER_CREDIT = 5; // har 5 xabar uchun 1 kredit sarflanadi
@@ -58,11 +59,72 @@ Agar savol noaniq bo'lsa, lekin huquqiy mavzuga tegishli bo'lishi mumkin bo'lsa 
 yozilgan), avval qaysi huquqiy mavzu nazarda tutilganini aniqlashtirish uchun qisqa savol ber.
 
 Huquqiy savollarga: aniq, professional va tushunarli ${langName} tilida javob ber.
-Agar quyida "MANBA MATNI" berilgan bo'lsa, javobingni ASOSAN shu matnga tayangan holda ber va
-qaysi moddaga asoslanganingni aniq ko'rsat. Manba matnida javob bo'lmasa, buni aytib qo'y va
-umumiy bilimingdan ehtiyotkorlik bilan foydalan. Agar savol murakkab bo'lsa yoki shaxsiy maslahat
-kerak bo'lsa, foydalanuvchini "Advokatlar" bo'limidan mutaxassisga murojaat qilishni tavsiya qil.
-Javoblaring qisqa va amaliy bo'lsin (3-6 jumla), va albatta ${langName} tilida.
+
+SAVOL TURINI ANIQLA -- BU JUDA MUHIM, FORMATNI TANLASHDAN OLDIN BAJARILADI:
+Har bir savol ikki turdan biriga kiradi, va FORMAT shunga qarab TANLANADI:
+
+TUR A -- MA'LUMOT SO'RALMOQDA (masalan: "X haqida qonun nima deydi", "Y talablari
+qanday", "Z qanday tartibga solinadi", "qaysi modda shuni belgilaydi"): bunday
+holda pastdagi RAQAMLANGAN MODDA FORMATI ishlatiladi (agar MANBA MATNI mavjud bo'lsa).
+
+TUR B -- SHAXSIY VAZIYAT YOKI MASLAHAT SO'RALMOQDA (masalan: "men buni qildim, endi
+nima qilishim kerak", "meni sudga berishyapti", "avtohalokatga uchradim", "kimdir
+mendan pul talab qilyapti", "ishdan haydab yuborishdi" va shunga o'xshash, real
+hayotiy vaziyat tasvirlangan savollar): bunday holda RAQAMLANGAN MODDA HISOBOTI
+FORMATIDAN FOYDALANMA -- bu sovuq va foydasiz ko'rinadi, odamga aynan shu daqiqada
+KEYINGI QADAMLAR kerak. Buning o'rniga: avval qisqa, xotirjam, professional tarzda
+vaziyatni tan ol, so'ng ANIQ, AMALIY QADAMLARNI raqamlab tushuntir (masalan:
+"1. Birinchi navbatda... 2. Keyin... 3. Murojaat qiling..."), zarur bo'lsa tegishli
+qonun/modda nomini GAP ICHIDA tabiiy tarzda eslatib o't (masalan "Jinoyat kodeksiga
+ko'ra bu... deb baholanishi mumkin"), lekin alohida "Manba:" yoki "(Havola: ...)"
+formatini MAJBURIY qilib qo'yma -- agar MANBA MATNI ichida tegishli havola bo'lsa,
+javobning oxirida "Qo'shimcha o'qish uchun:" deb bitta-ikkita havolani ixtiyoriy
+ravishda taklif qilishing mumkin, lekin bu TUR A dagidek qattiq, har bir bandda
+takrorlanadigan shart EMAS.
+
+JAVOB FORMATI -- TUR A SAVOLLAR UCHUN, AGAR "MANBA MATNI" BERILGAN BO'LSA, MAJBURIY QOIDA:
+Bunday holda javobingni QUYIDAGI ANIQ TUZILISHDA ber -- umumiy, manbasiz gap bilan
+javob berish QATTIQ TAQIQLANADI:
+
+1. Har bir tegishli qonun/modda uchun ALOHIDA, RAQAMLANGAN band yoz:
+   "1. «[Qonun nomi]»ning [X]-moddasi" kabi sarlavha bilan boshla, keyin shu modda
+   nima deyishini ANIQ tushuntir (agar MANBA MATNIda so'zma-so'z parcha bo'lsa, uni
+   tirnoq ichida keltir), so'ng yangi qatorda "(Manba: [havola])" deb MANBA MATNI
+   ichidagi "Havola:" qiymatini AYNAN shu ko'rinishda ko'rsat -- havolani o'zingdan
+   to'qima, FAQAT MANBA MATNIda berilgan havolani ishlat. Agar bir nechta modda
+   tegishli bo'lsa, har birini shu tarzda alohida-alohida raqamla (1, 2, 3...).
+2. Barcha bandlardan keyin, "Xulosa:" sarlavhasi bilan 2-4 jumlali umumlashtiruvchi
+   javob yoz -- bu yuqoridagi moddalarning amaliy ma'nosini oddiy tilda tushuntiradi.
+3. Keyin "Foydalanilgan manbalar:" sarlavhasi ostida, javobda ishlatilgan barcha
+   havolalarni alohida qatorlarda, ro'yxat sifatida qayta keltir.
+4. Eng oxirida, agar mavzu kengroq bo'lsa, "Aniqlashtiriluvchi savollar" sarlavhasi
+   ostida foydalanuvchi keyin so'rashi mumkin bo'lgan 3-5 ta tegishli savolni
+   ro'yxat qilib taklif qil (bu foydalanuvchiga mavzuni chuqurroq o'rganishga yordam beradi).
+Agar MANBA MATNIda havola umuman bo'lmasa, "(Manba: ko'rsatilmagan)" deb yoz --
+hech qachon havolani o'zingdan o'ylab topma yoki taxmin qilma.
+
+Agar "MANBA MATNI" UMUMAN BERILMAGAN bo'lsa (Nia qidiruvi natija bermagan holatda),
+buni ochiq ayt: "Aniq modda matniga hozircha kira olmadim, shuning uchun umumiy
+bilimimga asoslanib javob beraman -- aniq modda raqami uchun lex.uz saytini
+tekshirishni tavsiya qilaman." -- VA SHUNDAN KEYIN HAM TO'LIQ, BATAFSIL javob ber
+(umumiy bilimingga asoslanib bo'lsa ham): mavzuga tegishli barcha muhim jihatlarni
+yorit, amaliy qadamlarni tushuntir, va agar bir nechta qonun/sohaga tegishli bo'lsa,
+har birini alohida ko'rib chiq. QISQA, 2-3 jumlali javob bilan cheklanma -- bu
+holatda ham foydalanuvchi to'liq, professional darajadagi ma'lumot olishi kerak,
+faqat aniq modda raqami va havola o'rniga umumlashtirilgan tushuntirish bo'ladi.
+
+Manba matnida javob bo'lmasa, buni aytib qo'y va umumiy bilimingdan ehtiyotkorlik
+bilan foydalan. Agar savol murakkab bo'lsa yoki shaxsiy maslahat kerak bo'lsa,
+foydalanuvchini "Advokatlar" bo'limidan mutaxassisga murojaat qilishni tavsiya qil.
+
+JAVOB UZUNLIGI -- MUHIM: faqat tom ma'noda oddiy, bir og'iz javob talab qiladigan
+savollarga (masalan "ha/yo'q" tipidagi aniq savol) qisqa javob ber. BARCHA boshqa
+huquqiy savollarga -- qonun, kodeks, modda, tartib-qoida, jarayon haqida bo'lsa --
+TO'LIQ, BATAFSIL, PROFESSIONAL DARAJADA javob ber: tegishli barcha jihatlarni
+(shartlar, tartib, hujjatlar, muddatlar, istisnolar) yoritib, savol qaysidir
+boshqa qonun yoki sohaga ham tegishli bo'lsa, o'shani ham eslatib o'tib javob ber.
+Qisqalik uchun mazmunni qisqartirma -- foydalanuvchi yuzaki emas, chuqur va
+amaliy javob kutadi. Har doim ${langName} tilida yoz.
 
 SUD AMALIYOTI HAQIDA QOIDA: agar MANBA MATNI ichida "--- SUD AMALIYOTI ---" deb belgilangan
 bo'lim bo'lsa, bu -- real sud qarorlaridan olingan matn (qonun moddasi emas). Javob berishda
@@ -123,6 +185,32 @@ function isLikelyDispute(message) {
   return DISPUTE_KEYWORDS.test(message);
 }
 
+// MUHIM TUZATISH: ilgari, hatto Nia haqiqiy modda matnini va manba havolasini
+// topgan (citations[] to'la bo'lgan) taqdirda ham, bu havolaning AI javobi
+// matniga chiqib-chiqmasligi BUTUNLAY OpenAI modeliga -- ya'ni u system
+// promptdagi formatlash qoidasini qanchalik aniq bajarishiga -- bog'liq edi.
+// Model ba'zan savolni "shaxsiy vaziyat" (TUR B) deb noto'g'ri tasniflar
+// yoki shunchaki yo'riqnomani to'liq bajarmas edi, va NATIJADA: real manba
+// topilgan bo'lsa-yu, foydalanuvchi hech qanday silka ko'rmasdi.
+//
+// Bu funksiya muammoni AI'ning "xohishi"ga emas, deterministik (har doim
+// bir xil ishlovchi) tekshiruvga bog'laydi: agar haqiqiy citations[] mavjud
+// bo'lsa-yu, AI javobi ICHIDA ulardan birortasining havolasi/manba matni
+// uchramasa, server javobning oxiriga "Foydalanilgan manbalar" blokini
+// O'ZI qo'shib qo'yadi -- shunda foydalanuvchi HAR DOIM, AI formatga
+// rioya qilgan-qilmaganidan qat'i nazar, real manba havolasini ko'radi.
+function ensureCitationsVisible(reply, citations) {
+  if (!reply || !citations || !citations.length) return reply;
+  const alreadyHasLink = citations.some(
+    (c) => c.sourceUrl && reply.includes(c.sourceUrl)
+  );
+  if (alreadyHasLink) return reply;
+  const list = citations
+    .map((c) => `- ${c.citationText}`)
+    .join('\n');
+  return `${reply}\n\n---\n📚 Foydalanilgan manbalar:\n${list}`;
+}
+
 async function callOpenAI(message, history, niaContext, lang, caseSummary) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -150,7 +238,11 @@ async function callOpenAI(message, history, niaContext, lang, caseSummary) {
           ...(history || []).slice(-6),
           { role: 'user', content: message },
         ],
-        max_tokens: 500,
+        // MUHIM: 500 token JUDA OZ edi -- bu sababli javoblar o'rtada
+        // kesilib qolardi (masalan "...xorijda investitsiya" so'zida
+        // to'xtab qolgan holatlar kuzatilgan). Strukturali, ko'p moddali,
+        // havolali va xulosali to'liq javob uchun 1600 tokenga oshirildi.
+        max_tokens: 1600,
       }),
     });
     if (!resp.ok) {
@@ -267,7 +359,15 @@ router.post('/', requireAuth, async (req, res) => {
     let niaContext = null;
     let citations = [];
     let caseLawUsed = false;
-    const NIA_TIMEOUT_MS = 4000;
+    // MUHIM TUZATISH: bu qiymat nia.js ichidagi ichki timeout'dan (5000ms)
+    // KICHIK BO'LMASLIGI SHART. Avval bu yerda 4000ms turardi -- ya'ni
+    // Nia hali javob bera olishi mumkin bo'lgan paytda (4-5 soniya oralig'ida),
+    // tashqi withTimeout uni "yo'q" deb hisoblab, NATIJANI TASHLAB YUBORARDI.
+    // Aynan shu sabab ba'zi savollarda (sal sekinroq Nia javobi kelganda)
+    // silka/citation umuman ko'rinmasdi -- bu tasodifiy emas, vaqt poygasi
+    // (race condition) edi. Endi tashqi timeout ichki timeout'dan keyin
+    // tugaydi, shuning uchun Nia'ga to'liq imkoniyat beriladi.
+    const NIA_TIMEOUT_MS = 5500;
     const withTimeout = (promise, ms) =>
       Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
 
@@ -283,10 +383,19 @@ router.post('/', requireAuth, async (req, res) => {
 
       if (lawResult && lawResult.chunks.length) {
         // MULTI-SOURCE CONTEXT: xom Nia natijasini kodeks/modda bilan bog'lab,
-        // "Manba: [Davlat], [Kodeks], [Modda]" formatidagi iqtibosga aylantiramiz.
+        // "Manba: [Davlat], [Kodeks], [Modda] (Havola: [URL])" formatidagi
+        // iqtibosga aylantiramiz.
         citations = buildCitations(lawResult.chunks, jurisRoute.code);
+        // MUHIM: har bir parcha matnini O'ZINING manbasi bilan BEVOSITA
+        // yonma-yon joylashtiramiz (bitta matn blokini, alohida manbalar
+        // ro'yxatini emas) -- aks holda AI qaysi gap qaysi havolaga
+        // tegishli ekanini taxmin qilishga majbur bo'lardi, va ko'pincha
+        // hech qanday havola bermay javob berardi.
+        const interleaved = lawResult.chunks
+          .map((c, i) => `[${citations[i]?.citationText || 'Manba noma\'lum'}]\n${c.text}`)
+          .join('\n\n---\n\n');
         niaContext = {
-          text: lawResult.chunks.map((c) => c.text).join('\n---\n').slice(0, 2000),
+          text: interleaved.slice(0, 3000),
           sources: citations.map((c) => c.citationText),
         };
       }
@@ -300,9 +409,31 @@ router.post('/', requireAuth, async (req, res) => {
       }
     }
 
+    // ZAXIRA QIDIRUV: agar Nia hech narsa topa olmasa (yoki sozlanmagan
+    // bo'lsa), OpenAI'ning real-vaqtli veb-qidiruvi orqali manba topishga
+    // harakat qilamiz. Bu ham topa olmasa, niaContext null bo'lib qoladi --
+    // bu holatda AI hali ham TO'LIQ va PROFESSIONAL javob beradi (pastdagi
+    // system prompt qoidasiga ko'ra), shunchaki aniq havolasiz.
+    if (!niaContext) {
+      const webResult = await searchViaOpenAI(message, LANG_NAMES[lang] || "o'zbek").catch(() => null);
+      if (webResult && webResult.text) {
+        const urlLines = webResult.urls.length
+          ? webResult.urls.map((u) => `(Havola: ${u})`).join('\n')
+          : '';
+        niaContext = {
+          text: `${webResult.text}\n${urlLines}`.slice(0, 3000),
+          sources: webResult.urls.map((u) => `Manba: ${u}`),
+        };
+      }
+    }
+
     // 3-qadam: OpenAI (Nia kontekst bilan boyitilgan, tanlangan tilda) yoki fallback
     const aiReply = await callOpenAI(message, history, niaContext, lang, caseDoc?.summary);
-    const reply = aiReply || fallbackReply(message, lang);
+    let reply = aiReply || fallbackReply(message, lang);
+    // TUZATISH: AI formatga rioya qilmagan taqdirda ham, real topilgan
+    // manba havolasi javobda ko'rinishini KAFOLATLAYMIZ (yuqoridagi
+    // ensureCitationsVisible() izohiga qarang).
+    if (aiReply) reply = ensureCitationsVisible(reply, citations);
 
     // 4-qadam: xabar hisoblagichini oshirish, kerak bo'lsa kredit yechish
     const newCount = sentSoFar + 1;

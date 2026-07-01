@@ -67,6 +67,7 @@ yurist-ai-app/
 │   ├── index.js                 Express kirish nuqtasi, barcha route mount
 │   ├── nia.js                    Nia API klienti (real qonun/sud qidiruvi)
 │   ├── riskEngine.js             Shartnoma xavf tahlili — qoidaga asoslangan ball
+│   ├── riskEngine.test.js        riskEngine.js'ni o'zgartirgandan keyin ALBATTA ishga tushiriladigan doimiy test to'plami
 │   ├── textExtraction.js         PDF/DOCX/TXT fayllardan haqiqiy matn ajratish (pdf-parse, mammoth)
 │   ├── jurisdictionRouter.js      Matn/parametr asosida qaysi davlat qonuni kerakligini aniqlaydi
 │   ├── citationBuilder.js        AI javobiga manba havolalarini biriktiradi
@@ -343,6 +344,18 @@ PATCH  /api/admin/incidents/:id/notify-authority
 ```
 
 ## 9. Bilingan cheklovlar (joriy holat, yashirilmagan)
+
+- **"Qonunlar" bo'limi STATIK ma'lumotlar bazasi EMAS** -- bu ataylab shunday
+  qilingan. lex.uz'dagi BARCHA kodekslar va minglab moddani statik nusxa
+  sifatida saqlash (a) doimo eskirib qoladi (qonun o'zgarganda qayta
+  yuklamasdan bilinmaydi), va (b) bir necha haftalik alohida loyiha talab
+  qiladi. Buning o'rniga tizim Nia API orqali lex.uz'ni **JONLI** qidiradi --
+  har bir savol uchun eng so'nggi rasmiy matnni real vaqtda topadi. AI Yordamchi
+  va "Qonunlar" bo'limi ikkisi ham shu mexanizmni ishlatadi, va ikkisida ham
+  endi har bir modda **aniq lex.uz havolasi** (Manba: lex.uz, bosilganda
+  to'g'ridan-to'g'ri tegishli moddaga ochiladi) bilan birga ko'rsatiladi.
+  Ilgari bu havola hisoblab chiqilardi-yu, AI javobiga yoki interfeysga
+  yetib bormas edi (havola "yo'qolib qolardi") -- bu tuzatildi.
 
 - **`POST /api/users/me/credits`** -- hozircha to'lov provayderi (Payme/Click)
   ulanmagan, shuning uchun bu endpoint mijoz so'rovidagi qiymatga ishonadi.

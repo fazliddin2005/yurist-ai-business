@@ -17,6 +17,7 @@ const { buildCitations } = require('../../citationBuilder');
 const { requireAuth } = require('../../routes/auth');
 const ws = require('../workspace');
 const { evaluateResponse, recordAccuracyScore } = require('../../accuracyMetrics');
+const { searchViaOpenAI } = require('../../openaiSearch');
 
 const router = express.Router();
 const MESSAGES_PER_CREDIT = 5; // har 5 xabar uchun 1 kredit sarflanadi -- B2C bilan bir xil
@@ -47,9 +48,42 @@ Agar savol huquqqa aloqasi bo'lmagan mavzuda bo'lsa, SAVOLGA JAVOB BERMA. O'rnig
 bu mavzu yordam doirasidan tashqarida ekanini ayt va huquqiy savol bilan murojaat qilishni so'ra.
 
 Huquqiy savollarga: aniq, professional va tushunarli ${langName} tilida javob ber.
-Agar quyida "MANBA MATNI" berilgan bo'lsa, javobingni ASOSAN shu matnga tayangan holda ber va
-qaysi moddaga asoslanganingni aniq ko'rsat.
-Javoblaring qisqa va amaliy bo'lsin (3-6 jumla), va albatta ${langName} tilida.
+
+SAVOL TURINI ANIQLA -- FORMATNI TANLASHDAN OLDIN:
+TUR A -- MA'LUMOT SO'RALMOQDA ("X haqida qonun nima deydi", "Y talablari qanday"):
+RAQAMLANGAN MODDA FORMATI ishlatiladi (pastda, agar MANBA MATNI mavjud bo'lsa).
+TUR B -- SHAXSIY VAZIYAT YOKI MASLAHAT ("bizning kompaniyamiz shu muammoga duch
+keldi, nima qilamiz", real ish vaziyati): RAQAMLANGAN MODDA HISOBOTI ISHLATILMAYDI --
+buning o'rniga vaziyatni qisqa tan olib, ANIQ AMALIY QADAMLARNI raqamlab tushuntir,
+qonunni gap ichida tabiiy eslatib o't, lekin har bandda "(Havola: ...)" formatini
+majburiy qilib qo'yma.
+
+JAVOB FORMATI -- TUR A SAVOLLAR UCHUN, AGAR "MANBA MATNI" BERILGAN BO'LSA, MAJBURIY QOIDA:
+Bunday holda javobingni QUYIDAGI ANIQ TUZILISHDA ber -- umumiy, manbasiz gap bilan
+javob berish QATTIQ TAQIQLANADI:
+
+1. Har bir tegishli qonun/modda uchun ALOHIDA, RAQAMLANGAN band yoz:
+   "1. «[Qonun nomi]»ning [X]-moddasi" kabi sarlavha bilan boshla, keyin shu modda
+   nima deyishini ANIQ tushuntir (agar MANBA MATNIda so'zma-so'z parcha bo'lsa, uni
+   tirnoq ichida keltir), so'ng yangi qatorda "(Manba: [havola])" deb MANBA MATNI
+   ichidagi "Havola:" qiymatini AYNAN shu ko'rinishda ko'rsat -- havolani o'zingdan
+   to'qima, FAQAT MANBA MATNIda berilgan havolani ishlat. Agar bir nechta modda
+   tegishli bo'lsa, har birini shu tarzda alohida-alohida raqamla (1, 2, 3...).
+2. Barcha bandlardan keyin, "Xulosa:" sarlavhasi bilan 2-4 jumlali umumlashtiruvchi
+   javob yoz.
+3. Keyin "Foydalanilgan manbalar:" sarlavhasi ostida, javobda ishlatilgan barcha
+   havolalarni alohida qatorlarda, ro'yxat sifatida qayta keltir.
+Agar MANBA MATNIda havola umuman bo'lmasa, "(Manba: ko'rsatilmagan)" deb yoz --
+hech qachon havolani o'zingdan o'ylab topma yoki taxmin qilma.
+
+Agar "MANBA MATNI" UMUMAN BERILMAGAN bo'lsa, buni ochiq ayt: "Aniq modda matniga
+hozircha kira olmadim, shuning uchun umumiy bilimimga asoslanib javob beraman" --
+VA SHUNDAN KEYIN HAM TO'LIQ, BATAFSIL javob ber, qisqa 2-3 jumla bilan cheklanma.
+
+JAVOB UZUNLIGI -- MUHIM: faqat tom ma'noda oddiy ha/yo'q savollariga qisqa javob
+ber. BARCHA boshqa huquqiy savollarga TO'LIQ, BATAFSIL, PROFESSIONAL DARAJADA
+javob ber -- tegishli barcha jihatlarni (shartlar, tartib, hujjatlar, muddatlar)
+yoritib. Har doim ${langName} tilida yoz.
 
 SUD AMALIYOTI HAQIDA QOIDA: agar MANBA MATNI ichida "--- SUD AMALIYOTI ---" deb belgilangan
 bo'lim bo'lsa, bu -- real sud qarorlaridan olingan matn (qonun moddasi emas). Javob berishda
@@ -109,7 +143,7 @@ async function callOpenAI(message, history, niaContext, lang) {
           ...(history || []).slice(-6),
           { role: 'user', content: message },
         ],
-        max_tokens: 500,
+        max_tokens: 1600,
       }),
     });
     if (!resp.ok) throw new Error(`OpenAI ${resp.status}`);
@@ -167,8 +201,13 @@ router.post('/:workspaceId', async (req, res) => {
 
       if (lawResult && lawResult.chunks.length) {
         citations = buildCitations(lawResult.chunks, jurisRoute.code);
+        // B2C bilan bir xil tuzatish: har bir parcha matnini o'zining
+        // manbasi bilan bevosita yonma-yon joylashtiramiz.
+        const interleaved = lawResult.chunks
+          .map((c, i) => `[${citations[i]?.citationText || 'Manba noma\'lum'}]\n${c.text}`)
+          .join('\n\n---\n\n');
         niaContext = {
-          text: lawResult.chunks.map((c) => c.text).join('\n---\n').slice(0, 2000),
+          text: interleaved.slice(0, 3000),
           sources: citations.map((c) => c.citationText),
         };
       }
@@ -179,6 +218,22 @@ router.post('/:workspaceId', async (req, res) => {
           ? { ...niaContext, text: niaContext.text + `\n\n--- SUD AMALIYOTI ---\n${caseLawText}` }
           : { text: `--- SUD AMALIYOTI ---\n${caseLawText}`, sources: [] };
         caseLawUsed = true;
+      }
+    }
+
+    // ZAXIRA QIDIRUV: B2C bilan bir xil mantiq -- Nia hech narsa topa
+    // olmasa, OpenAI veb-qidiruvi orqali sinab ko'ramiz. Topilmasa, AI
+    // baribir to'liq javob beradi, shunchaki havolasiz.
+    if (!niaContext) {
+      const webResult = await searchViaOpenAI(message, LANG_NAMES[lang] || "o'zbek").catch(() => null);
+      if (webResult && webResult.text) {
+        const urlLines = webResult.urls.length
+          ? webResult.urls.map((u) => `(Havola: ${u})`).join('\n')
+          : '';
+        niaContext = {
+          text: `${webResult.text}\n${urlLines}`.slice(0, 3000),
+          sources: webResult.urls.map((u) => `Manba: ${u}`),
+        };
       }
     }
 

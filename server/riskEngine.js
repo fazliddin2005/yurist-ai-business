@@ -2,6 +2,16 @@
 // Bu modul B2C (server/routes/risk.js) va B2B (server/b2b/routes/audit.js)
 // ikkisi tomonidan ham qayta ishlatiladi -- shunday qilib tahlil mantiqi
 // FAQAT BIR JOYDA yashaydi va ikkisida bir xil natija beradi.
+//
+// ====================================================================
+// MUHIM -- BU FAYLNI O'ZGARTIRGANDAN KEYIN ALBATTA SHUNI ISHGA TUSHIRING:
+//     node server/riskEngine.test.js
+// Bu doimiy test to'plami real hujjatlarda ikki marta topilgan xato
+// klassini (rus fe'l/ot undosh almashinishi: расторг/расторж, оплат/оплач)
+// va barcha 8 tilning asosiy atamalarini tekshiradi. Agar test FAIL
+// bersa, o'zgarish biror narsani buzgan -- sababini topib tuzating.
+// ====================================================================
+//
 // Har bir tekshiruv endi ilovaning 8 tiliga mos kalit so'zlarni o'z ichiga
 // oladi: o'zbek, rus, ingliz, qozoq, qirg'iz, tojik, turkman, ozarbayjon.
 // Har bir til uchun atama RASMIY yuridik manbalar (davlat qonun bazalari:
@@ -18,7 +28,7 @@ const CHECKS = [
     re: /predmet|предмет|mol-?mulk|объект|xizmat|услуг|tovar|товар|мавзӯъ|нысан|мәні|mövzu|subject of (this|the) (agreement|contract)/i,
     bad: 'Shartnoma predmeti (nima haqida ekani) aniq yozilmagan.' },
   { key: 'narx', label: "Narx / to'lov shartlari", sev: 'high',
-    re: /so'?m|сум|narx|цена|to'?lov|оплат|summa|сумм|miqdor|нарх|баға|баа|qiymət|price|payment/i,
+    re: /so'?m|сум|narx|цена|to'?lov|оплат|оплач|summa|сумм|miqdor|нарх|баға|баа|qiymət|price|payment/i,
     bad: "To'lov miqdori yoki tartibi ko'rsatilmagan." },
   { key: 'muddat', label: 'Amal qilish muddati', sev: 'med',
     re: /muddat|срок|sana|дата|20\d\d|\d{1,2}\.\d{1,2}\.\d{2,4}|мерзім|мөөнөт|мӯҳлат|möhlet|müddət|term of|duration/i,
@@ -27,13 +37,13 @@ const CHECKS = [
     re: /jarima|штраф|penya|пеня|javobgar|ответствен|neustoyka|неустойк|ҷарима|jerime|cərimə|айыппұл|айыппул|penalty|liability/i,
     bad: 'Majburiyat buzilganda jarima yoki javobgarlik nazarda tutilmagan.' },
   { key: 'bekor', label: 'Bekor qilish tartibi', sev: 'med',
-    re: /bekor|расторж|односторон|bir tomonlama|ogohlantir|уведомл|бекор|бұзу|бузуу|ləğv|xitam|termination|terminate/i,
+    re: /bekor|расторж|расторг|прекращ|односторон|bir tomonlama|ogohlantir|уведомл|бекор|бұзу|бузуу|ləğv|xitam|termination|terminate/i,
     bad: "Shartnomani bekor qilish tartibi ko'rsatilmagan." },
   { key: 'nizo', label: 'Nizolarni hal qilish', sev: 'low',
     re: /nizo|спор|sud|суд|arbitr|арбитраж|muzokara|переговор|дау|доо|баҳс|jedel|mübahisə|dispute|negotiation/i,
     bad: "Nizolarni hal qilish tartibi ko'rsatilmagan." },
   { key: 'imzo', label: "Imzo bo'limi", sev: 'low',
-    re: /imzo|подпис|m\.?o['‘]?|қолтаңба|қол қою|кол тамга|имзо|imza|signature/i,
+    re: /imzo|подпис|m\.?o['‘]?|қолтаңба|қол қою|кол тамга|имзо|imza|signature|(?:^|\s)м\.?п\.?(?:\s|$)/i,
     bad: "Imzo va sana bo'limi yo'q." },
 ];
 

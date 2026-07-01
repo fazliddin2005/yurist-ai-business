@@ -30,6 +30,18 @@ function stripMarkdown(text){
     .replace(/__(?!_)(.+?)(?<!_)__/g, '$1')
     .replace(/^#{1,6}\s+/gm, '');
 }
+// B2C bilan bir xil tuzatish: chat bubble HTML sifatida render qilinadi,
+// lekin AI javobida markdown (**qalin**) va lex.uz havolalari oddiy matn
+// sifatida kelib, BOSILMAYDIGAN va formatlanmagan bo'lib qolardi.
+function formatChatReply(text){
+  let s = String(text||'');
+  s = s.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/^#{1,6}\s+(.+)$/gm, '<strong>$1</strong>');
+  s = s.replace(/(https?:\/\/[^\s<>"')]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#0E7C86;font-weight:600">$1 ↗</a>');
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
 
 function applyB2BLang(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
@@ -986,19 +998,20 @@ async function b2bSendChat(){
       renderB2BChatHistory();
     }
 
-    const {reply, niaSources, caseLawUsed, creditsLeft} = await apiPost(`/b2b/chat/${currentWorkspace.id}`, {message:q, history:b2bChatHistory, lang:curLang});
+    const {reply, source, niaSources, caseLawUsed, creditsLeft} = await apiPost(`/b2b/chat/${currentWorkspace.id}`, {message:q, history:b2bChatHistory, lang:curLang});
     b2bChatHistory.push({role:'user', content:q}, {role:'assistant', content:reply});
     typing.remove();
 
     const srcBadge = niaSources && niaSources.length
-      ? `<div style="margin-top:8px;font-size:10.5px;opacity:.7">📚 ${niaSources.map(s=>typeof s==='string'?s:(s&&s.url)||(s&&s.name)||'rasmiy manba').join(', ')}</div>` : '';
+      ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10.5px;opacity:.75">📚 ${niaSources.map(s=>formatChatReply(typeof s==='string'?s:(s&&s.url)||(s&&s.name)||'rasmiy manba')).join('<br>')}</div>`
+      : '';
     const caseLawBadge = caseLawUsed
       ? `<div style="margin-top:4px;font-size:10.5px;color:#a78bfa">⚖️ ${t('case_law_included')||'Sud amaliyoti hisobga olindi'}</div>` : '';
 
     const docMatch = reply.match(/\[\[DOC_START\]\]([\s\S]*?)\[\[DOC_END\]\]/);
     if(docMatch){
-      const before = reply.slice(0, docMatch.index).trim();
-      const after = reply.slice(docMatch.index + docMatch[0].length).trim();
+      const before = formatChatReply(reply.slice(0, docMatch.index).trim());
+      const after = formatChatReply(reply.slice(docMatch.index + docMatch[0].length).trim());
       const docText = stripMarkdown(docMatch[1].trim());
       const docId = 'b2bdoc_'+Date.now();
       window._b2bAiDocs = window._b2bAiDocs || {};
@@ -1017,7 +1030,7 @@ async function b2bSendChat(){
         ${after?`<div style="margin-top:8px">${after}</div>`:''}
         ${srcBadge}${caseLawBadge}</div></div>`;
     }else{
-      body.innerHTML += `<div class="b2b-msg"><div class="b2b-msg-av">🤖</div><div class="b2b-msg-bub">${reply}${srcBadge}${caseLawBadge}</div></div>`;
+      body.innerHTML += `<div class="b2b-msg"><div class="b2b-msg-av">🤖</div><div class="b2b-msg-bub">${formatChatReply(reply)}${srcBadge}${caseLawBadge}</div></div>`;
     }
     body.scrollTop=body.scrollHeight;
 

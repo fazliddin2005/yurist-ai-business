@@ -176,6 +176,8 @@
   .art-head:hover{background:#fafbff}
   .art-no{background:#eef1f8;color:#475;font-weight:700;font-size:12.5px;padding:5px 12px;border-radius:20px;white-space:nowrap}
   .art-title{font-weight:600;font-size:14.5px;flex:1}
+  .art-src-link{font-weight:600;font-size:14.5px;flex:1;color:var(--teal-dark);text-decoration:none}
+  .art-src-link:hover{text-decoration:underline}
   .art-caret{color:var(--muted);transition:.2s}
   .art.open .art-caret{transform:rotate(180deg)}
   .art-body{display:none;padding:0 20px 18px 20px;color:#43506b;font-size:13.5px;line-height:1.65;border-left:3px solid #e3e7f2;margin:0 20px 16px 20px;padding-left:16px}
@@ -656,7 +658,10 @@
     <!-- ===== LAWS ===== -->
     <section class="page" id="page-laws">
       <div class="ph"><h2>Qonunlar</h2><p>O‘zbekiston Respublikasi qonunlari va kodekslari</p></div>
+      <div id="lawCatTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px"></div>
+      <div id="lawCatNotice" style="display:none;background:#eef2ff;border-radius:11px;padding:12px 16px;font-size:12.5px;color:#4338ca;margin-bottom:18px"></div>
       <div id="lawList" class="grid3"></div>
+      <div id="lawCatList" class="grid3" style="display:none"></div>
       <div id="lawDetail" style="display:none"></div>
     </section>
 
@@ -1013,6 +1018,112 @@ const LEGAL_DB = {
 };
 const JURIS_ORDER=['UZ','KZ','KG','TJ','TM','RU','AZ','US'];
 
+// MUHIM: yuqoridagi LEGAL_DB'da har bir mamlakatning kodeks nomi (laws[].name,
+// laws[].desc) FAQAT o'sha mamlakatning rasmiy tilida yozilgan (masalan RU
+// uchun rus tilida, KZ uchun qozoq tilida). Bu O'zbekiston (UZ) uchun
+// "tasodifan" to'g'ri ko'rinardi (chunki UZ ma'lumotlari o'zbek tilida
+// yozilgan), lekin foydalanuvchi boshqa mamlakat (masalan Rossiya) kodeksini
+// ko'rganda, interfeys tili o'zbekcha bo'lsa ham, kodeks nomlari rus tilida
+// chiqib qolardi. Buni tuzatish uchun har bir kodeks TURI (key: const,
+// civil, crim, labor, tax, family, admin, land) bo'yicha, barcha 8 ilova
+// tiliga tarjima qilingan jadval -- shunda har qaysi mamlakatning kodeksi
+// ko'rsatilsa ham, nomi joriy interfeys tiliga mos chiqadi.
+const CODEX_LABELS = {
+  const: {
+    uz:{name:'Konstitutsiya',desc:'Davlatning asosiy qonuni'},
+    ru:{name:'Конституция',desc:'Основной закон государства'},
+    en:{name:'Constitution',desc:'The supreme law of the state'},
+    kk:{name:'Конституция',desc:'Мемлекеттің негізгі заңы'},
+    ky:{name:'Конституция',desc:'Мамлекеттин негизги мыйзамы'},
+    tg:{name:'Конститутсия',desc:'Қонуни асосии давлат'},
+    tk:{name:'Konstitusiýa',desc:'Döwletiň esasy kanuny'},
+    az:{name:'Konstitusiya',desc:'Dövlətin əsas qanunu'},
+  },
+  civil: {
+    uz:{name:'Fuqarolik kodeksi',desc:'Fuqarolik huquqiy munosabatlari'},
+    ru:{name:'Гражданский кодекс',desc:'Гражданско-правовые отношения'},
+    en:{name:'Civil Code',desc:'Civil legal relations'},
+    kk:{name:'Азаматтық кодекс',desc:'Азаматтық-құқықтық қатынастар'},
+    ky:{name:'Жарандык кодекс',desc:'Жарандык-укуктук мамилелер'},
+    tg:{name:'Кодекси граждани',desc:'Муносибатҳои ҳуқуқии граждани'},
+    tk:{name:'Raýat kodeksi',desc:'Raýat-hukuk gatnaşyklary'},
+    az:{name:'Mülki Məcəllə',desc:'Mülki-hüquqi münasibətlər'},
+  },
+  crim: {
+    uz:{name:'Jinoyat kodeksi',desc:'Jinoyat javobgarligi'},
+    ru:{name:'Уголовный кодекс',desc:'Уголовная ответственность'},
+    en:{name:'Criminal Code',desc:'Criminal liability'},
+    kk:{name:'Қылмыстық кодекс',desc:'Қылмыстық жауаптылық'},
+    ky:{name:'Кылмыш-жаза кодекси',desc:'Кылмыштык жоопкерчилик'},
+    tg:{name:'Кодекси ҷиноятӣ',desc:'Ҷавобгарии ҷиноятӣ'},
+    tk:{name:'Jenaýat kodeksi',desc:'Jenaýat jogapkärçiligi'},
+    az:{name:'Cinayət Məcəlləsi',desc:'Cinayət məsuliyyəti'},
+  },
+  labor: {
+    uz:{name:'Mehnat kodeksi',desc:'Mehnat munosabatlari'},
+    ru:{name:'Трудовой кодекс',desc:'Трудовые отношения'},
+    en:{name:'Labor Code',desc:'Labor relations'},
+    kk:{name:'Еңбек кодексі',desc:'Еңбек қатынастары'},
+    ky:{name:'Эмгек кодекси',desc:'Эмгек мамилелери'},
+    tg:{name:'Кодекси меҳнат',desc:'Муносибатҳои меҳнатӣ'},
+    tk:{name:'Zähmet kodeksi',desc:'Zähmet gatnaşyklary'},
+    az:{name:'Əmək Məcəlləsi',desc:'Əmək münasibətləri'},
+  },
+  tax: {
+    uz:{name:'Soliq kodeksi',desc:"Soliq to'lovlari va imtiyozlar"},
+    ru:{name:'Налоговый кодекс',desc:'Налоги и льготы'},
+    en:{name:'Tax Code',desc:'Taxes and benefits'},
+    kk:{name:'Салық кодексі',desc:'Салықтар мен жеңілдіктер'},
+    ky:{name:'Салык кодекси',desc:'Салыктар жана жеңилдиктер'},
+    tg:{name:'Кодекси андоз',desc:'Андозҳо ва имтиёзҳо'},
+    tk:{name:'Salgyt kodeksi',desc:'Salgytlar we ýeňillikler'},
+    az:{name:'Vergi Məcəlləsi',desc:'Vergilər və güzəştlər'},
+  },
+  family: {
+    uz:{name:'Oila kodeksi',desc:'Nikoh va oilaviy munosabatlar'},
+    ru:{name:'Семейный кодекс',desc:'Брачно-семейные отношения'},
+    en:{name:'Family Code',desc:'Marriage and family relations'},
+    kk:{name:'Неке және отбасы кодексі',desc:'Неке және отбасылық қатынастар'},
+    ky:{name:'Үй-бүлө кодекси',desc:'Нике жана үй-бүлөлүк мамилелер'},
+    tg:{name:'Кодекси оила',desc:'Муносибатҳои оилавӣ'},
+    tk:{name:'Maşgala kodeksi',desc:'Maşgala gatnaşyklary'},
+    az:{name:'Ailə Məcəlləsi',desc:'Nikah və ailə münasibətləri'},
+  },
+  admin: {
+    uz:{name:"Ma'muriy javobgarlik kodeksi",desc:"Ma'muriy huquqbuzarliklar"},
+    ru:{name:'Кодекс об административной ответственности',desc:'Административные правонарушения'},
+    en:{name:'Administrative Code',desc:'Administrative offenses'},
+    kk:{name:'Әкімшілік құқық бұзушылық кодексі',desc:'Әкімшілік құқық бұзушылықтар'},
+    ky:{name:'Администрациялык жоопкерчилик кодекси',desc:'Администрациялык укук бузуулар'},
+    tg:{name:'Кодекси ҳуқуқвайронкунии маъмурӣ',desc:'Ҳуқуқвайронкуниҳои маъмурӣ'},
+    tk:{name:'Administratiw jogapkärçilik kodeksi',desc:'Administratiw hukuk bozmalar'},
+    az:{name:'İnzibati Xətalar Məcəlləsi',desc:'İnzibati xətalar'},
+  },
+  land: {
+    uz:{name:'Yer kodeksi',desc:'Yer huquqiy munosabatlari'},
+    ru:{name:'Земельный кодекс',desc:'Земельно-правовые отношения'},
+    en:{name:'Land Code',desc:'Land legal relations'},
+    kk:{name:'Жер кодексі',desc:'Жер-құқықтық қатынастар'},
+    ky:{name:'Жер кодекси',desc:'Жер-укуктук мамилелер'},
+    tg:{name:'Кодекси замин',desc:'Муносибатҳои ҳуқуқии замин'},
+    tk:{name:'Ýer kodeksi',desc:'Ýer-hukuk gatnaşyklary'},
+    az:{name:'Torpaq Məcəlləsi',desc:'Torpaq-hüquq münasibətləri'},
+  },
+};
+// Berilgan kodeks obyekti (LEGAL_DB ichidagi) va joriy interfeys tili
+// asosida, tarjima qilingan nom/tavsifni qaytaradi. Agar shu kodeks turi
+// uchun tarjima topilmasa, original (mamlakat tilidagi) nom/tavsifga
+// qaytariladi -- shuning uchun bu funksiya hech qachon bo'sh natija bermaydi.
+function localizedLaw(lawEntry){
+  const t = CODEX_LABELS[lawEntry.key];
+  const langLabel = t && (t[curLang] || t.uz);
+  return {
+    name: langLabel ? langLabel.name : lawEntry.name,
+    desc: langLabel ? langLabel.desc : lawEntry.desc,
+    nativeName: lawEntry.name,
+  };
+}
+
 // Hozircha advokatlar yo'q — real advokatlar biz bilan shartnoma tuzilgandan
 // keyin birma-bir qo'shiladi. Qo'shilganda shu massivga obyekt qo'shish kifoya.
 const lawyers = [];
@@ -1102,6 +1213,29 @@ function stripMarkdown(text){
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/__(?!_)(.+?)(?<!_)__/g, '$1')
     .replace(/^#{1,6}\s+/gm, '');
+}
+// Chat bubble'lari HTML sifatida render qilinadi (innerHTML), lekin AI
+// javobi markdown belgilar bilan kelishi mumkin (**qalin**, # sarlavha) va
+// havolalar (https://lex.uz/...) oddiy matn sifatida kelib, BOSILMAYDIGAN
+// bo'lib qolardi. Bu funksiya: (1) xavfsizlik uchun HTML'ni escape qiladi
+// (AI matni orqali ixtiyoriy HTML/skript kiritilishining oldini oladi),
+// (2) **qalin**ni haqiqiy <strong> teglariga aylantiradi, (3) qator
+// ko'chirishlarni saqlaydi, (4) lex.uz kabi havolalarni BOSILADIGAN
+// <a> linkiga aylantiradi.
+function formatChatReply(text){
+  let s = String(text||'');
+  // 1) Avval xavfsizlik uchun escape qilamiz
+  s = s.replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // 2) **qalin** -> <strong>
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // 3) # Sarlavha -> qalin qator (chat ichida alohida HTML sarlavha shart emas)
+  s = s.replace(/^#{1,6}\s+(.+)$/gm, '<strong>$1</strong>');
+  // 4) URL'larni bosiladigan havolaga aylantiramiz (escape qilingandan keyin
+  // ham http(s):// matn sifatida saqlanib qoladi, shuning uchun shu yerda ishlaydi)
+  s = s.replace(/(https?:\/\/[^\s<>"')]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#0E7C86;font-weight:600">$1 ↗</a>');
+  // 5) Qator ko'chirishlarni saqlaymiz
+  s = s.replace(/\n/g, '<br>');
+  return s;
 }
 
 async function apiGet(path){
@@ -1260,24 +1394,164 @@ const LAWUI={
   tk:{title:'Kanunlar',src:'Çeşme',back:'‹ Yza',official:'Resmi çeşme',note:'Aşakdaky tekst nusga hökmünde berlen. Doly resmi teksti şu saýtdan okaň:',from:'',codes:'kanunlary we kodeksleri'},
   az:{title:'Qanunlar',src:'Mənbə',back:'‹ Geri',official:'Rəsmi mənbə',note:'Aşağıdakı mətn nümunə kimi verilib. Tam rəsmi mətni bu saytda oxuyun:',from:'',codes:'qanunları və məcəllələri'},
 };
+// Bitta moddani bosganda, uning TO'LIQ MATNINI jonli (real vaqtda)
+// backend orqali (server/routes/catalog.js -> /laws/:j/:k/article/:no)
+// yuklab, shu modda qatori ostida ochib ko'rsatadi. Hech qachon oldindan
+// saqlanmaydi -- har doim eng yangi versiya.
+const articleTextCache = {}; // sessiya ichidagi qisqa muddatli kesh (qayta bosganda qayta so'ramaslik uchun)
+
+// Oddiy markdown → HTML konvertori (Nia matnlari uchun)
+function mdToHtml(text){
+  if(!text) return '';
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    // sarlavhalar
+    .replace(/^### (.+)$/gm,'<strong style="font-size:12px;display:block;margin-top:8px">$1</strong>')
+    .replace(/^## (.+)$/gm,'<strong style="font-size:13px;display:block;margin-top:10px">$1</strong>')
+    .replace(/^# (.+)$/gm,'<strong style="font-size:14px;display:block;margin-top:12px">$1</strong>')
+    // qalin va kursiv
+    .replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    // --- ajratuvchi chiziq
+    .replace(/^---+$/gm,'<hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0">')
+    // bo'sh satrlar
+    .replace(/\n{2,}/g,'<br><br>')
+    .replace(/\n/g,'<br>');
+}
+
+async function toggleArticleText(rowEl, lawKey, articleNo){
+  const body = rowEl.querySelector('.art-body');
+  if(body.style.display === 'block'){ body.style.display='none'; return; }
+  body.style.display='block';
+  const cacheKey = `${jurisdiction}_${lawKey}_${articleNo}`;
+  if(articleTextCache[cacheKey]){ body.innerHTML = articleTextCache[cacheKey]; return; }
+  body.innerHTML = '⏳ Yuklanmoqda (rasmiy manbadan jonli olinmoqda)...';
+  try{
+    const resp = await fetch(`${API}/catalog/laws/${jurisdiction}/${lawKey}/article/${articleNo}`, {headers: authHeaders()});
+    const data = await resp.json();
+    let html;
+    if(data.found){
+      const rendered = mdToHtml(data.text||'');
+      const sourceDisplay = (data.source && data.source !== data.officialUrl)
+        ? data.source.replace(/^https?:\/\//,'')
+        : (data.officialUrl||'').replace(/^https?:\/\//,'');
+      html = `<div style="line-height:1.7">${rendered}</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted)">✅ Jonli olindi · <a href="${data.officialUrl}" target="_blank" onclick="event.stopPropagation()" style="color:var(--accent,#6d3bf5)">${sourceDisplay}</a></div>`;
+    } else {
+      html = `<div style="color:var(--muted);font-size:12px;line-height:1.6">${data.notice||"Modda matni topilmadi."}</div>
+        <div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap">
+          <a href="${data.officialUrl}" target="_blank" onclick="event.stopPropagation()" style="color:var(--accent,#6d3bf5);font-size:11px">↗ Rasmiy manbada ko'rish</a>
+          <a href="https://lex.uz" target="_blank" onclick="event.stopPropagation()" style="color:#059669;font-size:11px">🔍 lex.uz</a>
+        </div>`;
+    }
+    articleTextCache[cacheKey] = html;
+    body.innerHTML = html;
+  }catch(e){
+    body.innerHTML = `<div style="color:#c0392b">Yuklashda xato yuz berdi. Qayta urinib ko'ring.</div>`;
+  }
+}
 function lui(){return LAWUI[curLang]||LAWUI.uz;}
+
+// KATEGORIYALANGAN "QONUNLAR" BO'LIMI -- Kodekslar (eski, to'liq ishlaydigan
+// oqim -- openLaw() orqali Nia bilan), va uchta YANGI kategoriya: Qonunlar,
+// Prezident hujjatlari, Hukumat qarorlari -- bular hozircha faqat indeks
+// (nom+raqam+sana+lex.uz havolasi) ko'rinishida, backend'dan
+// /api/catalog/legal-categories/:jurisdiction orqali olinadi.
+let lawCategoriesCache = null;
+let activeLawCat = 'kodekslar';
+const LAW_CAT_LABELS = {
+  kodekslar: { uz: 'Kodekslar', ru: 'Кодексы', en: 'Codes' },
+  qonunlar: { uz: 'Qonunlar', ru: 'Законы', en: 'Laws' },
+  prezidentHujjatlari: { uz: 'Prezident hujjatlari', ru: 'Документы Президента', en: 'Presidential Acts' },
+  hukumatQarorlari: { uz: 'Hukumat qarorlari', ru: 'Постановления Правительства', en: 'Government Resolutions' },
+};
+function lawCatLabel(key){
+  const L = LAW_CAT_LABELS[key];
+  return (L && (L[curLang] || L.uz)) || key;
+}
+async function loadLawCategories(){
+  if(lawCategoriesCache && lawCategoriesCache.jurisdiction === jurisdiction) return lawCategoriesCache;
+  try{
+    const resp = await fetch(`${API}/catalog/legal-categories/${jurisdiction}`, {headers: authHeaders()});
+    const data = await resp.json();
+    if(!resp.ok) throw new Error(data.error||'Server xatosi');
+    lawCategoriesCache = data;
+    return data;
+  }catch(e){
+    return { kodekslar: LEGAL_DB[jurisdiction].laws, qonunlar: [], prezidentHujjatlari: [], hukumatQarorlari: [], notice: null };
+  }
+}
+function renderLawCatTabs(){
+  const tabs = document.getElementById('lawCatTabs');
+  const keys = ['kodekslar','qonunlar','prezidentHujjatlari','hukumatQarorlari'];
+  tabs.innerHTML = keys.map((k)=>{
+    const active = k===activeLawCat;
+    return `<button onclick="switchLawCat('${k}')" style="padding:8px 16px;border-radius:20px;border:1px solid ${active?'var(--accent,#6d3bf5)':'rgba(0,0,0,.12)'};background:${active?'var(--accent,#6d3bf5)':'transparent'};color:${active?'#fff':'inherit'};font-size:12.5px;font-weight:600;cursor:pointer">${lawCatLabel(k)}</button>`;
+  }).join('');
+}
+async function switchLawCat(key){
+  activeLawCat = key;
+  renderLawCatTabs();
+  const data = await loadLawCategories();
+  const notice = document.getElementById('lawCatNotice');
+  const lawList = document.getElementById('lawList');
+  const catList = document.getElementById('lawCatList');
+  document.getElementById('lawDetail').style.display='none';
+
+  if(key==='kodekslar'){
+    // ESKI, TO'LIQ ISHLAYDIGAN OQIM -- o'zgarishsiz qoldirildi.
+    notice.style.display='none';
+    catList.style.display='none';
+    lawList.style.display='';
+    renderLaws();
+    return;
+  }
+
+  lawList.style.display='none';
+  catList.style.display='';
+  const items = data[key] || [];
+  if(data.notice){ notice.textContent = data.notice; notice.style.display=''; }
+  else notice.style.display='none';
+
+  if(!items.length){
+    const fallbackUrl = key==='hukumatQarorlari' && data.hukumatQarorlariSourceUrl ? data.hukumatQarorlariSourceUrl : LEGAL_DB[jurisdiction].official;
+    catList.innerHTML = `<div class="empty-state" style="padding:40px 20px;grid-column:1/-1"><div class="ei">📄</div>
+      <p>${lawCatLabel(key)} ro'yxati hozircha bu yerda to'ldirilmagan.</p>
+      <a class="ghost-btn" href="${fallbackUrl}" target="_blank" style="margin-top:10px;display:inline-block">↗ Rasmiy manbadan ko'rish</a></div>`;
+    return;
+  }
+
+  catList.innerHTML = items.map((it,i)=>{
+    const[bg,fg]=iconBg[i%iconBg.length];
+    const meta = [it.number, it.type, it.date||it.adoptedDate].filter(Boolean).join(' · ');
+    return `<a href="${it.url}" target="_blank" class="law-card" style="text-decoration:none;color:inherit">
+      <div class="lc-ico" style="background:${bg};color:${fg}">📜</div>
+      <h4>${it.name}</h4>
+      <div class="ld">${meta}${it.desc?(' — '+it.desc):''}</div>
+      <span class="go">↗</span></a>`;
+  }).join('');
+}
 function renderLaws(){
+  renderLawCatTabs();
   const db=LEGAL_DB[jurisdiction];const u=lui();
   const ph=document.querySelector('#page-laws .ph');
   ph.innerHTML=`<h2>${u.title}</h2><p>${db.flag} ${db.name} ${u.codes} · ${u.src}: <a href="${db.official}" target="_blank" style="color:#4f46e5;font-weight:600">${db.officialName} ↗</a></p>`;
   const c=document.getElementById('lawList');c.innerHTML='';
   db.laws.forEach((l,i)=>{
     const[bg,fg]=iconBg[i%iconBg.length];
+    const loc=localizedLaw(l);
     c.innerHTML+=`<div class="law-card" onclick="openLaw('${l.key}')">
       <div class="lc-ico" style="background:${bg};color:${fg}">${l.ic}</div>
-      <h4>${l.name}</h4><div class="ld">${l.desc}</div><span class="go">›</span></div>`;
+      <h4>${loc.name}</h4><div class="ld">${loc.desc}</div><span class="go">›</span></div>`;
   });
 }
 async function openLaw(key){
   const db=LEGAL_DB[jurisdiction];const u=lui();
   const law=db.laws.find(l=>l.key===key);
-  const title = key==='const' ? db.constTitle : law.name;
-  const sub = key==='const' ? db.constSub : (law.desc+' — '+db.name);
+  const loc=localizedLaw(law);
+  const title = key==='const' ? `${loc.name} — ${db.name}` : loc.name;
+  const sub = loc.desc+' — '+db.name;
   const officialUrl = law?law.url:db.official;
 
   document.getElementById('lawList').style.display='none';
@@ -1328,9 +1602,12 @@ async function openLaw(key){
   if(data.detailedToc && data.tocSections){
     function renderArticleList(articles){
       return `<div style="display:flex;flex-direction:column;gap:2px;margin-top:6px">${articles.map(a=>
-        `<div style="padding:8px 12px;border-radius:8px;font-size:12.5px;display:flex;gap:8px" onmouseover="this.style.background='var(--bg-soft,#f8f9fc)'" onmouseout="this.style.background='none'">
-          <span style="font-weight:700;color:var(--accent,#6d3bf5);white-space:nowrap">${a.no}-modda</span>
-          <span style="color:var(--text)">${a.title}</span>
+        `<div class="art-row" data-no="${a.no}" onclick="toggleArticleText(this,'${key}','${a.no}')" style="padding:8px 12px;border-radius:8px;font-size:12.5px;cursor:pointer" onmouseover="this.style.background='var(--bg-soft,#f8f9fc)'" onmouseout="this.style.background='none'">
+          <div style="display:flex;gap:8px">
+            <span style="font-weight:700;color:var(--accent,#6d3bf5);white-space:nowrap">${a.no}-modda</span>
+            <span style="color:var(--text)">${a.title}</span>
+          </div>
+          <div class="art-body" style="display:none;margin-top:8px;padding:10px 12px;background:var(--bg-soft,#f8f9fc);border-radius:8px;font-size:12px;line-height:1.6;white-space:pre-wrap"></div>
         </div>`).join('')}</div>`;
     }
     function renderTocNode(node, level){
@@ -1346,7 +1623,7 @@ async function openLaw(key){
       if(node.chapters) node.chapters.forEach(sub=>{ h += renderTocNode(sub, level+1); });
       return h;
     }
-    html += `<div class="law-section" style="padding:20px 22px">`;
+    html += `<div class="law-section" style="padding:20px 22px"><div style="background:#ecfdf5;border-radius:11px;padding:10px 14px;font-size:12px;color:#047857;margin-bottom:14px">💡 Har bir moddaga bosing -- to'liq matni ${db.officialName}'dan JONLI (real vaqtda) yuklanadi, hech qachon eskirmaydi.</div>`;
     data.tocSections.forEach(part=>{ html += renderTocNode(part, 0); });
     html += `</div>`;
     d.innerHTML = html; window.scrollTo(0,0);
@@ -1360,9 +1637,12 @@ async function openLaw(key){
     sections.forEach((s,si)=>{
       html+=`<div class="law-section"><div class="ls-head"><div class="lhi">📖</div> ${s.sec}</div>`;
       s.arts.forEach((a,ai)=>{
+        const sourceLine = a.url
+          ? `<a href="${a.url}" target="_blank" rel="noopener" class="art-src-link" onclick="event.stopPropagation()">${a.t} ↗</a>`
+          : `<span class="art-title">${a.t}</span>`;
         html+=`<div class="art" id="art-${si}-${ai}">
           <div class="art-head" onclick="document.getElementById('art-${si}-${ai}').classList.toggle('open')">
-            <span class="art-no">${a.no}</span><span class="art-title">${a.t}</span><span class="art-caret">⌄</span></div>
+            <span class="art-no">${a.no}</span>${sourceLine}<span class="art-caret">⌄</span></div>
           <div class="art-body">${a.b}</div></div>`;
       });
       html+=`</div>`;
@@ -1554,7 +1834,7 @@ async function sendCaseChat(){
     const {reply, caseLawUsed} = await apiPost('/chat', {message:q, history:[], lang:curLang, caseId: currentCaseId});
     typing.remove();
     const caseLawBadge = caseLawUsed ? `<div style="margin-top:6px;font-size:11px;color:#7c3aed">⚖️ ${t('case_law_included')||'Sud amaliyoti hisobga olindi'}</div>` : '';
-    body.innerHTML += `<div class="msg ai"><div class="mav">🤖</div><div class="bub">${reply}${caseLawBadge}</div></div>`;
+    body.innerHTML += `<div class="msg ai"><div class="mav">🤖</div><div class="bub">${formatChatReply(reply)}${caseLawBadge}</div></div>`;
     body.scrollTop=body.scrollHeight;
     // Xulosa serverda yangilangan -- ishni qaytadan yuklab, yangi xulosani ko'rsatamiz
     const {case:updatedCase} = await apiGet(`/cases/${currentCaseId}`);
@@ -1666,20 +1946,21 @@ async function sendChat(){
       renderChatHistory();
     }
 
-    const {reply, niaSources, caseLawUsed, creditsLeft}=await apiPost('/chat',{message:q, history:chatHistory, jurisdiction, lang:curLang});
+    const {reply, source, niaSources, caseLawUsed, creditsLeft}=await apiPost('/chat',{message:q, history:chatHistory, jurisdiction, lang:curLang});
     if(typeof creditsLeft==='number'){ credits=creditsLeft; updateCredits(); }
     chatHistory.push({role:'user',content:q},{role:'assistant',content:reply});
     typing.remove();
     const srcBadge = niaSources && niaSources.length
-      ? `<div style="margin-top:8px;font-size:11px;opacity:.75">📚 Manba: ${niaSources.map(s=>typeof s==='string'?s:(s&&s.url)||(s&&s.name)||'rasmiy manba').join(', ')}</div>` : '';
+      ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08);font-size:11.5px;opacity:.8">📚 ${niaSources.map(s=>formatChatReply(typeof s==='string'?s:(s&&s.url)||(s&&s.name)||'rasmiy manba')).join('<br>')}</div>`
+      : '';
     const caseLawBadge = caseLawUsed
       ? `<div style="margin-top:4px;font-size:11px;color:#7c3aed">⚖️ ${t('case_law_included')||'Sud amaliyoti hisobga olindi'}</div>` : '';
 
     // AI javobida hujjat matni borligini tekshiramiz ([[DOC_START]]...[[DOC_END]] orasida)
     const docMatch = reply.match(/\[\[DOC_START\]\]([\s\S]*?)\[\[DOC_END\]\]/);
     if(docMatch){
-      const before = reply.slice(0, docMatch.index).trim();
-      const after = reply.slice(docMatch.index + docMatch[0].length).trim();
+      const before = formatChatReply(reply.slice(0, docMatch.index).trim());
+      const after = formatChatReply(reply.slice(docMatch.index + docMatch[0].length).trim());
       const docText = stripMarkdown(docMatch[1].trim());
       const docId = 'aidoc_'+Date.now();
       window._aiDocs = window._aiDocs || {};
@@ -1698,7 +1979,7 @@ async function sendChat(){
         ${after?`<div style="margin-top:10px">${after}</div>`:''}
         ${srcBadge}${caseLawBadge}</div></div>`;
     } else {
-      body.innerHTML+=`<div class="msg ai"><div class="mav">🤖</div><div class="bub">${reply}${srcBadge}${caseLawBadge}</div></div>`;
+      body.innerHTML+=`<div class="msg ai"><div class="mav">🤖</div><div class="bub">${formatChatReply(reply)}${srcBadge}${caseLawBadge}</div></div>`;
     }
     body.scrollTop=body.scrollHeight;
 
