@@ -339,12 +339,26 @@ router.get('/laws/:jurisdiction/:lawKey/article/:articleNo', async (req, res) =>
       });
     }
 
-    // Modda raqamiga eng mos chunk'ni tanlaymiz (ishonchli manbalar ichidan)
-    const exact = trustedChunks.find((c) => new RegExp(`\\b${articleNo}\\s*-?\\s*modda`, 'i').test(c.text));
-    const chosen = exact || trustedChunks[0];
+    // SALBIY FILTR — noto'g'ri kontent turlarini aniq rad etish
+    // (SKILL.md, tadqiqot maqolalari, markdown shablonlar, kod bloklari va h.k.)
+    const BAD_CONTENT = /SKILL\.md|Output format|Amendment History|Counterparty|```markdown|```js|```python|### Output|gfw\.report|obsidian\.md|\[Provision\]|\[date\]|anthropic|claude-for-legal|commercial-legal|skills\//i;
 
-    // Matn relevantligini tekshiramiz — minimal sifat nazorati
-    const hasLegalContent = /modda|kodeks|qonun|huquq|majburiyat|shartnoma|xodim|soliq|fuqaro/i.test(chosen.text);
+    const cleanChunks = trustedChunks.filter(c => !BAD_CONTENT.test(c.text));
+
+    if (!cleanChunks.length) {
+      return res.json({
+        found: false,
+        notice: `${articleNo}-modda matni ishonchli huquqiy manbada topilmadi. Rasmiy saytdan to'liq matnni ko'ring.`,
+        officialUrl: lawUrl,
+      });
+    }
+
+    // Aniq shu modda raqamini o'z ichiga olgan chunk ni qidiramiz
+    const exact = cleanChunks.find((c) => new RegExp(`\\b${articleNo}\\s*-?\\s*modda`, 'i').test(c.text));
+    const chosen = exact || cleanChunks[0];
+
+    // O'zbek huquqiy matni tekshiruvi
+    const hasLegalContent = /modda|kodeks|qonun|huquq|majburiyat|shartnoma|xodim|soliq|fuqaro|tashkilot|shaxs|tomonlar/i.test(chosen.text);
     if (!hasLegalContent) {
       return res.json({
         found: false,
